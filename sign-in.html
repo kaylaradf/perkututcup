@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0b0c10" />
+  <title>Masuk · Perkutut Cup 2026</title>
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&family=Pixelify+Sans:wght@400;600;700&family=Poppins:wght@400;500;700&family=Space+Mono&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="auth-body">
+  <main class="auth-screen">
+    <section class="auth-card" aria-labelledby="auth-title">
+      <a class="auth-home" href="index.html#home">
+        <img src="assets/icon-home.svg" width="17" height="16" alt="" />
+        <span>Home</span>
+      </a>
+
+      <img class="auth-logo" src="assets/logo-navbar-final.png" alt="Perkutut Cup 2026" width="212" height="118" />
+      <h1 class="auth-title" id="auth-title">Masuk</h1>
+      <p class="auth-subtitle">Masuk untuk melanjutkan ke Perkutut Cup 2026.</p>
+
+      <form class="auth-form" data-auth-form="sign-in" novalidate>
+        <label class="auth-field">
+          <span>Email atau Username</span>
+          <span class="auth-control">
+            <img class="auth-field-icon" src="assets/icon-mail.svg" width="14" height="14" alt="" />
+            <input name="email" type="text" autocomplete="username" placeholder="Masukkan email atau username" required />
+          </span>
+        </label>
+
+        <label class="auth-field">
+          <span>Kata Sandi</span>
+          <span class="auth-control">
+            <img class="auth-field-icon" src="assets/icon-lock.svg" width="14" height="14" alt="" />
+            <input name="password" type="password" autocomplete="current-password" placeholder="Masukkan kata sandi" required />
+            <button class="auth-password-toggle" type="button" data-password-toggle aria-label="Tampilkan kata sandi" aria-pressed="false">
+              <img src="assets/icon-eye.svg" width="14" height="14" alt="" />
+            </button>
+          </span>
+        </label>
+
+        <a class="auth-forgot" href="#forgot-password" data-forgot-password>Lupa kata sandi?</a>
+        <button class="auth-submit" type="submit">Masuk</button>
+        <p class="auth-message" data-auth-message role="status" aria-live="polite"></p>
+      </form>
+
+      <p class="auth-switch">Belum punya akun? <a href="join.html">Daftar sekarang</a></p>
+    </section>
+  </main>
+  <script src="script.js" defer></script>
+</body>
+</html>

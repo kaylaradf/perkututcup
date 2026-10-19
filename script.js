@@ -132,4 +132,54 @@
       mascot.style.transform = "translate(0, 0) rotate(0deg)";
     });
   }
+
+  document.querySelectorAll("[data-password-toggle]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const input = button.closest(".auth-control")?.querySelector("input");
+      if (!input) return;
+
+      const reveal = input.type === "password";
+      input.type = reveal ? "text" : "password";
+      button.setAttribute("aria-pressed", String(reveal));
+      button.setAttribute("aria-label", reveal ? "Sembunyikan kata sandi" : "Tampilkan kata sandi");
+    });
+  });
+
+  document.querySelectorAll("[data-auth-form]").forEach((form) => {
+    const password = form.querySelector('input[name="password"]');
+    const confirmation = form.querySelector('input[name="confirmPassword"]');
+    const message = form.querySelector("[data-auth-message]");
+
+    const validateConfirmation = () => {
+      if (!confirmation || !password) return;
+      confirmation.setCustomValidity(
+        confirmation.value && confirmation.value !== password.value
+          ? "Kata sandi belum sama."
+          : ""
+      );
+    };
+
+    password?.addEventListener("input", validateConfirmation);
+    confirmation?.addEventListener("input", validateConfirmation);
+
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      validateConfirmation();
+      if (!form.reportValidity()) return;
+
+      if (message) {
+        message.textContent = form.dataset.authForm === "join"
+          ? "Formulir siap dihubungkan ke layanan pendaftaran."
+          : "Formulir siap dihubungkan ke layanan akun.";
+      }
+    });
+  });
+
+  document.querySelectorAll("[data-forgot-password]").forEach((link) => {
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      const message = link.closest(".auth-card")?.querySelector("[data-auth-message]");
+      if (message) message.textContent = "Pemulihan kata sandi belum tersedia.";
+    });
+  });
 })();
