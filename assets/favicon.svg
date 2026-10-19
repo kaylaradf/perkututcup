@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="frame" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff6b6b" />
+      <stop offset="1" stop-color="#8644a2" />
+    </linearGradient>
+    <clipPath id="icon-shape">
+      <rect x="3" y="3" width="58" height="58" rx="16" />
+    </clipPath>
+  </defs>
+  <rect width="64" height="64" rx="19" fill="#120e22" />
+  <image
+    href="logo-navbar-final.png"
+    x="-20.3"
+    y="-46.9"
+    width="293.5"
+    height="163.8"
+    preserveAspectRatio="none"
+    clip-path="url(#icon-shape)"
+  />
+  <rect x="2" y="2" width="60" height="60" rx="17" fill="none" stroke="url(#frame)" stroke-width="2" />
+</svg>
