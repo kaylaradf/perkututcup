@@ -616,7 +616,7 @@ button {
   width: 20px;
   height: 20px;
   flex-shrink: 0;
-  background: url("assets/chevron-down.svg") center / contain no-repeat;
+  background: url("assets/svg/chevron-down.svg") center / contain no-repeat;
   transition: transform 0.2s ease;
 }
 
@@ -969,7 +969,7 @@ button {
 /* FINAL BUILD hero: match the 1440px Figma frame geometry. */
 @font-face {
   font-family: "Figma Game Paused";
-  src: url("assets/gamepauseddemoregular-rpmy6.otf") format("opentype"), local("Game Paused DEMO"), local("Game Paused DEMO Regular");
+  src: url("assets/fonts/gamepauseddemoregular-rpmy6.otf") format("opentype"), local("Game Paused DEMO"), local("Game Paused DEMO Regular");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -977,7 +977,7 @@ button {
 
 @font-face {
   font-family: "Figma I Pixel U";
-  src: local("I-pixel-u"), local("I Pixel U");
+  src: url("assets/fonts/I-pixel-u.ttf") format("truetype"), local("I-pixel-u"), local("I Pixel U");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -985,7 +985,7 @@ button {
 
 @font-face {
   font-family: "Figma Terminess Mono";
-  src: local("Terminess Nerd Font Mono"), local("TerminessNerdFontMono-Regular");
+  src: url("assets/fonts/TerminessNerdFontMono-Regular.ttf") format("truetype"), local("Terminess Nerd Font Mono"), local("TerminessNerdFontMono-Regular");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -2807,8 +2807,13 @@ body::-webkit-scrollbar {
 
 .auth-password-toggle:hover,
 .auth-password-toggle:focus-visible {
-  background: rgba(134, 68, 162, 0.08);
-  outline: 2px solid rgba(134, 68, 162, 0.35);
+  background: transparent;
+  outline: none;
+}
+
+.auth-password-toggle:focus-visible img {
+  border-radius: 50%;
+  box-shadow: 0 0 0 4px rgba(134, 68, 162, 0.14);
 }
 
 .auth-password-toggle img {
@@ -2888,6 +2893,64 @@ body::-webkit-scrollbar {
 
 .auth-card--join .auth-field {
   margin-bottom: 9px;
+}
+
+.auth-field--password {
+  position: relative;
+  z-index: 2;
+}
+
+.password-rules {
+  position: absolute;
+  z-index: 3;
+  top: calc(100% - 3px);
+  left: 0;
+  display: grid;
+  width: 100%;
+  gap: 5px;
+  margin: 0;
+  padding: 11px 13px;
+  border: 1px solid rgba(134, 68, 162, 0.24);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 8px 20px rgba(31, 29, 54, 0.16);
+  color: #77748a;
+  font-family: var(--font-text);
+  font-size: 9px;
+  line-height: 1.35;
+  list-style: none;
+}
+
+.password-rules[hidden] {
+  display: none;
+}
+
+.password-rules li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  transition: color 140ms ease;
+}
+
+.password-rules li span {
+  display: inline-grid;
+  width: 14px;
+  height: 14px;
+  place-items: center;
+  border: 1px solid #c5c1ce;
+  border-radius: 50%;
+  color: transparent;
+  font-size: 9px;
+  line-height: 1;
+}
+
+.password-rules li.is-met {
+  color: #39845d;
+}
+
+.password-rules li.is-met span {
+  border-color: #55a879;
+  color: #39845d;
 }
 
 .auth-card--join .auth-submit {

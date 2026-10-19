@@ -149,6 +149,57 @@
     const password = form.querySelector('input[name="password"]');
     const confirmation = form.querySelector('input[name="confirmPassword"]');
     const message = form.querySelector("[data-auth-message]");
+    const isJoinForm = form.dataset.authForm === "join";
+    const passwordField = password?.closest(".auth-field");
+    const passwordRules = passwordField?.querySelector(".password-rules");
+    const invalidCharacters = {
+      name: /[^\p{L}\p{M} .'’-]/gu,
+      email: /[^A-Za-z0-9.!#$%&'*+/=?^_`{|}~@-]/g,
+      identifier: /[^A-Za-z0-9.!#$%&'*+/=?^_`{|}~@-]/g,
+      password: /[^\x20-\x7E]/g,
+    };
+
+    form.querySelectorAll("[data-allowlist]").forEach((input) => {
+      const invalid = invalidCharacters[input.dataset.allowlist];
+      if (!invalid) return;
+
+      input.addEventListener("input", () => {
+        const original = input.value;
+        const caret = input.selectionStart ?? original.length;
+        const sanitized = original.replace(invalid, "");
+        if (sanitized === original) return;
+
+        const sanitizedCaret = original.slice(0, caret).replace(invalid, "").length;
+        input.value = sanitized;
+        input.setSelectionRange(sanitizedCaret, sanitizedCaret);
+      });
+    });
+
+    const validatePassword = () => {
+      if (!password || !isJoinForm) return;
+      const value = password.value;
+      const checks = {
+        length: value.length >= 8,
+        lowercase: /[a-z]/.test(value),
+        uppercase: /[A-Z]/.test(value),
+        number: /\d/.test(value),
+        symbol: /[^A-Za-z0-9\s]/.test(value),
+      };
+      const isStrong = Object.values(checks).every(Boolean);
+
+      passwordRules?.querySelectorAll("[data-password-rule]").forEach((rule) => {
+        const met = checks[rule.dataset.passwordRule];
+        rule.classList.toggle("is-met", met);
+        const marker = rule.querySelector("span");
+        if (marker) marker.textContent = met ? "✓" : "○";
+      });
+
+      password.setCustomValidity(
+        value && !isStrong
+          ? "Gunakan minimal 8 karakter dengan huruf besar, huruf kecil, angka, dan simbol."
+          : ""
+      );
+    };
 
     const validateConfirmation = () => {
       if (!confirmation || !password) return;
@@ -159,11 +210,23 @@
       );
     };
 
-    password?.addEventListener("input", validateConfirmation);
+    password?.addEventListener("input", () => {
+      validatePassword();
+      validateConfirmation();
+    });
+    password?.addEventListener("focus", () => {
+      if (isJoinForm && passwordRules) passwordRules.hidden = false;
+    });
+    passwordField?.addEventListener("focusout", () => {
+      if (!passwordField.contains(document.activeElement) && passwordRules) {
+        passwordRules.hidden = true;
+      }
+    });
     confirmation?.addEventListener("input", validateConfirmation);
 
     form.addEventListener("submit", (event) => {
       event.preventDefault();
+      validatePassword();
       validateConfirmation();
       if (!form.reportValidity()) return;
 
