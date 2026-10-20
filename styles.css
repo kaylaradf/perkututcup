@@ -1874,7 +1874,9 @@ html {
 
 @media (prefers-reduced-motion: reduce) {
   .deco-star,
-  .deco-pixel {
+  .deco-pixel,
+  .auth-star,
+  .auth-pixel {
     animation: none;
   }
 
@@ -2668,15 +2670,63 @@ body::-webkit-scrollbar {
 }
 
 .auth-screen {
+  position: relative;
+  isolation: isolate;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   min-height: 100svh;
+  overflow: hidden;
   place-items: center;
   padding: 24px 16px;
   background: linear-gradient(180deg, #0b0c10 0%, #363262 52%, #5c5287 100%);
 }
 
+/* Decorative layer: same sparkle, pixel and halo language as the home page. */
+.auth-decor {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.auth-halo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: max(560px, 74vmin);
+  height: auto;
+  transform: translate(-50%, -54%);
+  opacity: 0.55;
+}
+
+.auth-star {
+  position: absolute;
+  animation: sparkle-float 7s ease-in-out infinite;
+}
+
+.auth-star-1 { top: 12%; left: 12%; animation-delay: -1.2s; }
+.auth-star-2 { top: 74%; right: 11%; animation-delay: -3.8s; }
+.auth-star-3 { top: 26%; right: 15%; animation-delay: -2.4s; }
+.auth-star-4 { bottom: 14%; left: 15%; animation-delay: -5.1s; }
+
+.auth-pixel {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: var(--cream);
+  opacity: 0.28;
+  animation: pixel-twinkle 4.6s ease-in-out infinite;
+}
+
+.auth-pixel-1 { top: 20%; left: 22%; animation-delay: -0.8s; }
+.auth-pixel-2 { top: 38%; right: 9%; animation-delay: -2.1s; }
+.auth-pixel-3 { top: 66%; left: 9%; animation-delay: -3.4s; }
+.auth-pixel-4 { bottom: 18%; right: 21%; animation-delay: -1.5s; }
+
 .auth-card {
   position: relative;
+  z-index: 1;
   width: min(440px, 100%);
   min-height: 485px;
   padding: 20px 24px 18px;
@@ -2988,6 +3038,15 @@ body::-webkit-scrollbar {
   .auth-card--join .auth-logo {
     width: min(190px, 62%);
   }
+
+  .auth-star {
+    opacity: 0.85;
+  }
+
+  .auth-star-1 { left: 8%; }
+  .auth-star-4 { left: 9%; }
+  .auth-pixel-1 { left: 16%; }
+  .auth-pixel-3 { left: 6%; }
 }
 
 @media (max-height: 700px) {
