@@ -1,0 +1,9 @@
+# graphify generated knowledge graph
+graphify-out/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/

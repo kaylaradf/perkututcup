@@ -1,22 +1,27 @@
 (() => {
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  const heroTitle = document.querySelector(".home-page .hero-title");
-  if (heroTitle && !reduceMotion) {
-    const title = heroTitle.textContent.trim();
+  const splitTitle = (heading) => {
+    const title = heading.textContent.trim();
     const letters = document.createDocumentFragment();
-    heroTitle.setAttribute("aria-label", title);
+    heading.setAttribute("aria-label", title);
 
     Array.from(title).forEach((character, index) => {
       const letter = document.createElement("span");
-      letter.className = "hero-letter";
+      letter.className = "title-letter";
       letter.setAttribute("aria-hidden", "true");
       letter.style.setProperty("--letter-delay", `${index * 34}ms`);
       letter.textContent = character;
       letters.append(letter);
     });
 
-    heroTitle.replaceChildren(letters);
+    heading.replaceChildren(letters);
+  };
+
+  if (!reduceMotion) {
+    document
+      .querySelectorAll(".home-page .hero-title, .about-page .policy-title, .timeline-page .coming-soon-title")
+      .forEach(splitTitle);
   }
 
   const motionGroups = [
