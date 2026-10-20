@@ -2515,16 +2515,24 @@ body::-webkit-scrollbar {
   filter: none;
 }
 
-.home-page .hero-letter {
+.title-letter {
   display: inline-block;
   white-space: pre;
   transform-origin: 50% 82%;
   backface-visibility: hidden;
 }
 
-.has-motion .home-page .hero-title.is-visible .hero-letter {
-  animation: hero-letter-arrive 760ms cubic-bezier(.18, .84, .25, 1) both;
+.has-motion .home-page .hero-title.is-visible .title-letter,
+.has-motion .about-page .policy-title.is-visible .title-letter,
+.has-motion .timeline-page .coming-soon-title.is-visible .title-letter {
+  animation: title-letter-arrive 760ms cubic-bezier(.18, .84, .25, 1) both;
   animation-delay: var(--letter-delay, 0ms);
+}
+
+/* Give the About and Timeline headings the same weighted entrance origin as the home hero. */
+.has-motion .about-page [data-motion="policy-title"],
+.has-motion .timeline-page [data-motion="coming-soon-title"] {
+  transform-origin: 50% 75%;
 }
 
 .has-motion .home-page [data-motion="hero-year"].is-visible {
@@ -2585,7 +2593,7 @@ body::-webkit-scrollbar {
   filter: drop-shadow(0 0 8px rgba(255, 218, 48, .75));
 }
 
-@keyframes hero-letter-arrive {
+@keyframes title-letter-arrive {
   0% {
     opacity: 0;
     transform: translateY(.62em) rotateX(-58deg) scale(.72);
@@ -2628,11 +2636,13 @@ body::-webkit-scrollbar {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .home-page .hero-letter {
+  .title-letter {
     display: inline;
   }
 
-  .has-motion .home-page .hero-title.is-visible .hero-letter,
+  .has-motion .home-page .hero-title.is-visible .title-letter,
+  .has-motion .about-page .policy-title.is-visible .title-letter,
+  .has-motion .timeline-page .coming-soon-title.is-visible .title-letter,
   .has-motion .home-page [data-motion="hero-year"].is-visible,
   .has-motion .home-page .hero-badge,
   .has-motion .home-page .hero-badge img {
