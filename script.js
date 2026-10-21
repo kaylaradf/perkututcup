@@ -240,6 +240,46 @@
           ? "Formulir siap dihubungkan ke layanan pendaftaran."
           : "Formulir siap dihubungkan ke layanan akun.";
       }
+
+      if (!isJoinForm) {
+        try {
+          sessionStorage.setItem("perkutut-auth", "1");
+        } catch (error) {
+          /* storage unavailable: the dashboard guard will fall back to 404 */
+        }
+        window.location.href = "../dashboard/profile/";
+      }
+    });
+  });
+
+  document.querySelectorAll(".tabs").forEach((tabs) => {
+    const buttons = tabs.querySelectorAll(".tab");
+    const panel = document.getElementById(tabs.querySelector(".tab").getAttribute("aria-controls"));
+    buttons.forEach((button) => {
+      button.addEventListener("click", () => {
+        buttons.forEach((other) => {
+          const selected = other === button;
+          other.classList.toggle("is-active", selected);
+          other.setAttribute("aria-selected", String(selected));
+        });
+        if (panel) panel.setAttribute("aria-labelledby", button.id);
+      });
+    });
+  });
+
+  document.querySelectorAll("[data-dash-form]").forEach((form) => {
+    const status = form.querySelector("[data-dash-status]");
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      if (!form.reportValidity()) return;
+      if (status) status.textContent = "Perubahan profil siap dihubungkan ke layanan akun.";
+    });
+
+    form.querySelectorAll("[data-upload]").forEach((button) => {
+      button.addEventListener("click", () => {
+        if (!status) return;
+        status.textContent = "Unggah dokumen siap dihubungkan ke layanan penyimpanan.";
+      });
     });
   });
 
