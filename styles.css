@@ -2075,6 +2075,26 @@ body::-webkit-scrollbar {
   white-space: nowrap;
 }
 
+.not-found-stage {
+  gap: 0.75rem;
+  align-content: center;
+}
+
+.not-found-title {
+  margin-bottom: 0;
+}
+
+.not-found-sub {
+  margin: -1.25rem 0 0;
+  color: var(--cream-muted);
+  font-family: "Figma Terminess Mono", var(--font-mono);
+  font-size: clamp(0.75rem, 1.15vw, 0.95rem);
+  letter-spacing: 0.16em;
+  line-height: 1.6;
+  text-align: center;
+  text-transform: uppercase;
+}
+
 .timeline-page .page-footer-spacious {
   position: absolute;
   z-index: 1;
@@ -2467,6 +2487,16 @@ body::-webkit-scrollbar {
 }
 
 @media (max-width: 768px) {
+  .not-found-stage {
+    padding: 116px 22px 32px;
+  }
+
+  .not-found-sub {
+    margin-top: -0.75rem;
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+  }
+
   .faq {
     padding-bottom: 3rem;
   }

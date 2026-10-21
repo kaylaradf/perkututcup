@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0b0c10" />
+  <title>Profil &amp; Tim · Perkutut Cup 2026</title>
+  <link rel="icon" type="image/svg+xml" href="../../assets/svg/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&family=Pixelify+Sans:wght@400;600;700&family=Poppins:wght@400;500;700&family=Space+Mono&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../../styles.css" />
+  <link rel="stylesheet" href="../../dashboard.css" />
+  <script src="../../auth-guard.js"></script>
+</head>
+<body class="dash-body">
+  <div class="dash">
+    <aside class="dash-aside" aria-label="Navigasi akun">
+      <div>
+        <a class="dash-brand" href="../../#home" aria-label="Perkutut Cup 2026 home">
+          <span class="dash-brand-mark"><img src="../../assets/svg/dashboard/brand-mark.svg" width="22" height="22" alt="" /></span>
+          <strong>User Portal</strong>
+        </a>
+
+        <div class="dash-team">
+          <span class="dash-avatar">A</span>
+          <span>
+            <small>ACTIVE TEAM</small>
+            <strong>Ari Dwi Saputra</strong>
+          </span>
+        </div>
+
+        <nav class="dash-nav" aria-label="Menu dashboard">
+          <a class="is-active" aria-current="page" href="../profile/">
+            <img src="../../assets/svg/dashboard/nav-profile.svg" width="18" height="18" alt="" />
+            <span>PROFILE &amp; TEAM</span>
+          </a>
+          <a href="../submission/">
+            <img src="../../assets/svg/dashboard/nav-submission.svg" width="18" height="18" alt="" />
+            <span>PROJECT SUBMISSION</span>
+          </a>
+        </nav>
+      </div>
+
+      <div class="dash-aside-foot">
+        <a href="../../#home">
+          <img src="../../assets/svg/dashboard/nav-home.svg" width="18" height="18" alt="" />
+          <span>HOME PAGE</span>
+        </a>
+        <a href="../../sign-in/">
+          <img src="../../assets/svg/dashboard/nav-logout.svg" width="18" height="18" alt="" />
+          <span>LOGOUT</span>
+        </a>
+      </div>
+    </aside>
+
+    <main class="dash-main">
+      <h1 class="dash-page-title">Profile &amp; Team</h1>
+      <p class="dash-page-sub">Kelola data diri, dokumen, dan tim Anda.</p>
+
+      <section class="dash-metrics" aria-label="Ringkasan akun">
+        <article class="metric is-violet">
+          <img class="metric-watermark" src="../../assets/svg/dashboard/watermark-members.svg" width="72" height="72" alt="" />
+          <span class="metric-icon"><img src="../../assets/svg/dashboard/icon-members.svg" width="23" height="23" alt="" /></span>
+          <div>
+            <p class="metric-label">TEAM MEMBER COUNT</p>
+            <p class="metric-value">1 / 1</p>
+          </div>
+        </article>
+
+        <article class="metric is-green">
+          <img class="metric-watermark" src="../../assets/svg/dashboard/watermark-check.svg" width="72" height="72" alt="" />
+          <span class="metric-icon"><img src="../../assets/svg/dashboard/icon-shield-check.svg" width="23" height="23" alt="" /></span>
+          <div>
+            <p class="metric-label">REGISTRATION STATUS</p>
+            <p class="metric-value">Verified</p>
+            <a class="metric-link" href="#whatsapp">Join the WhatsApp Group</a>
+          </div>
+        </article>
+
+        <article class="metric is-amber">
+          <img class="metric-watermark" src="../../assets/svg/dashboard/watermark-trophy.svg" width="72" height="72" alt="" />
+          <span class="metric-icon"><img src="../../assets/svg/dashboard/icon-trophy.svg" width="23" height="23" alt="" /></span>
+          <div>
+            <p class="metric-label">COMPETITION TRACK</p>
+            <p class="metric-value">KRIPTOGRAFI</p>
+          </div>
+          <a class="metric-note" href="../../#competition">Read Guidebook</a>
+        </article>
+      </section>
+
+      <a class="dash-inline-link" id="whatsapp" href="#whatsapp">Join the WhatsApp Group</a>
+
+      <div class="dash-grid">
+        <section class="card">
+          <div class="card-head">
+            <h2>PERSONAL INFORMATION</h2>
+            <a class="edit-link" href="#profile-form">
+              <img src="../../assets/svg/dashboard/icon-pencil.svg" width="16" height="16" alt="" />
+              Edit Profile
+            </a>
+          </div>
+
+          <form class="dash-form" id="profile-form" data-dash-form="profile" novalidate>
+            <label class="field">
+              <span>FULL NAME</span>
+              <input class="input" name="fullName" type="text" value="Ari Dwi Saputra" autocomplete="name" maxlength="100" required />
+            </label>
+
+            <label class="field">
+              <span>INSTITUTION</span>
+              <input class="input" name="institution" type="text" value="Politeknik Negeri Cilacap" maxlength="120" required />
+            </label>
+
+            <div class="field-row">
+              <label class="field">
+                <span>EMAIL ADDRESS</span>
+                <input class="input" name="email" type="email" value="aridspc@gmail.com" autocomplete="email" maxlength="254" required />
+              </label>
+
+              <label class="field">
+                <span>PHONE NUMBER</span>
+                <span class="phone-row">
+                  <span class="phone-code">
+                    <span class="phone-flag" aria-hidden="true"></span>
+                    <span class="sr-only">Kode negara</span>
+                    +62
+                    <img src="../../assets/svg/dashboard/icon-chevron-down.svg" width="9" height="9" alt="" />
+                  </span>
+                  <input class="input" name="phone" type="tel" value="858-6959-2005" autocomplete="tel-national" maxlength="20" />
+                </span>
+              </label>
+            </div>
+
+            <label class="field">
+              <span>DATE OF BIRTH</span>
+              <span class="input-wrap">
+                <input class="input" name="birthDate" type="text" value="29/01/2008" maxlength="10" />
+                <img class="input-icon" src="../../assets/svg/dashboard/icon-calendar.svg" width="18" height="18" alt="" />
+              </span>
+            </label>
+
+            <label class="field">
+              <span>INSTAGRAM USERNAME</span>
+              <p class="field-hint">*Ensure your Instagram account is set to public during verification and competition phase</p>
+              <input class="input" name="instagram" type="text" value="ari.x64" maxlength="30" />
+            </label>
+
+            <a class="field-link" href="https://instagram.com/" target="_blank" rel="noopener noreferrer">Follow @perkututcup</a>
+
+            <span class="form-divider"></span>
+
+            <div class="upload-head">
+              <h3>DOCUMENT UPLOADS</h3>
+              <div class="upload-list">
+                <article class="upload-item">
+                  <span class="upload-info">
+                    <img class="upload-thumb" src="../../assets/images/dashboard/student-id.jpg" width="45" height="45" alt="Kartu mahasiswa" />
+                    <span class="upload-copy">
+                      <h4>STUDENT ID / ENROLLMENT VERIFICATION</h4>
+                      <p>Uploaded successfully <a href="#profile-form" data-view-upload>Click to view</a></p>
+                    </span>
+                  </span>
+                  <button class="btn-upload" type="button" data-upload="studentId">UPLOAD</button>
+                </article>
+
+                <article class="upload-item">
+                  <span class="upload-info">
+                    <img class="upload-thumb" src="../../assets/images/dashboard/formal-photo.jpg" width="45" height="45" alt="Foto formal" />
+                    <span class="upload-copy">
+                      <h4>FORMAL PHOTO</h4>
+                      <p>Uploaded successfully <a href="#profile-form" data-view-upload>Click to view</a></p>
+                    </span>
+                  </span>
+                  <button class="btn-upload" type="button" data-upload="formalPhoto">UPLOAD</button>
+                </article>
+
+                <article class="upload-item">
+                  <span class="upload-info">
+                    <img class="upload-thumb" src="../../assets/images/dashboard/twibbon.jpg" width="45" height="45" alt="Twibbon" />
+                    <span class="upload-copy">
+                      <h4>TWIBBON FEEDS SCREENSHOT</h4>
+                      <p>Uploaded successfully <a href="#profile-form" data-view-upload>Click to view</a></p>
+                      <a class="upload-twibbon-link" href="../../#home">Download the Twibbon here</a>
+                      <p class="upload-hint">*Upload a screenshot of your posted twibbon on your public Instagram feeds<br />*Please keep your twibbon post until the competition ends</p>
+                    </span>
+                  </span>
+                  <button class="btn-upload" type="button" data-upload="twibbon">UPLOAD</button>
+                </article>
+
+                <article class="upload-item">
+                  <span class="upload-info">
+                    <img class="upload-thumb" src="../../assets/images/dashboard/instagram.jpg" width="45" height="45" alt="Screenshot follow Instagram" />
+                    <span class="upload-copy">
+                      <h4>FOLLOW INSTAGRAM @PERKUTUTCUP</h4>
+                      <p>Uploaded successfully <a href="#profile-form" data-view-upload>Click to view</a></p>
+                    </span>
+                  </span>
+                  <button class="btn-upload" type="button" data-upload="followInstagram">UPLOAD</button>
+                </article>
+              </div>
+            </div>
+
+            <button class="btn-save" type="submit">SAVE CHANGES</button>
+            <p class="dash-status" data-dash-status role="status" aria-live="polite"></p>
+          </form>
+        </section>
+
+        <section class="card card--accent">
+          <div class="card-head card-head--plain">
+            <h2>MY TEAM (ARI DWI SAPUTRA)</h2>
+            <span class="team-code"># AriHana2112</span>
+          </div>
+
+          <a class="dash-inline-link" href="#whatsapp">Join the WhatsApp Group</a>
+
+          <article class="team-member">
+            <img src="../../assets/images/dashboard/member-leader.jpg" width="41" height="41" alt="Ari Dwi Saputra" />
+            <span>
+              <strong>ARI DWI SAPUTRA<span class="team-badge">YOU</span></strong>
+              <small>Team Leader • Politeknik Negeri Cilacap</small>
+            </span>
+          </article>
+
+          <div class="proof-block">
+            <h3>TEAM PAYMENT PROOF</h3>
+            <article class="proof">
+              <span class="proof-icon"><img src="../../assets/svg/dashboard/icon-file-lock.svg" width="23" height="23" alt="" /></span>
+              <div>
+                <h4>PAYMENT RECEIPT</h4>
+                <p>Uploaded successfully <a href="#profile-form" data-view-upload>(Click to view)</a></p>
+                <p class="proof-hint">Bilang hi! ke kontak ini supaya di-acc : +62 8123 4567 893</p>
+              </div>
+            </article>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+  <script src="../../script.js" defer></script>
+</body>
+</html>
