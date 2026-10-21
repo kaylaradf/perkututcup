@@ -1,0 +1,7 @@
+router(mikrotik nabil)
+  |
+reverse-proxy
+|     |     
+dns  web    
+      |
+    database
