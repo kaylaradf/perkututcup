@@ -7,3 +7,6 @@ Thumbs.db
 *.swp
 .idea/
 .vscode/
+
+# local tooling artifacts
+.playwright-mcp/
