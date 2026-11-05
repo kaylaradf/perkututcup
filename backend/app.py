@@ -9,6 +9,7 @@ import os
 import re
 import secrets
 import hashlib
+import hmac
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -75,21 +76,48 @@ def init_db():
 
 
 # ------------------------------------------------------- password policy
+#
+# Kebijakan (NIST SP 800-63B style):
+#   - panjang 15..64 karakter
+#   - TIDAK mewajibkan kombinasi huruf besar/kecil/angka/simbol
+#   - TIDAK wajib diganti berkala
+#   - harus diperiksa: tidak mudah ditebak / umum digunakan (zxcvbn)
+#   - karakter ASCII yang dapat dicetak, spasi, dan Unicode diizinkan
+#   - lupa password: hubungi admin (tidak ada self-service reset)
+PW_MIN_LEN = 15
+PW_MAX_LEN = 64
+PW_MIN_SCORE = 3  # zxcvbn: 0..4; 3 = kuat
 
-# keala.web.id/passpolicy: length>=8, upper, lower, digit, symbol
-PASSWORD_RULES = {
-    "length": (lambda p: len(p) >= 8, "Minimal 8 karakter"),
-    "uppercase": (lambda p: re.search(r"[A-Z]", p) is not None, "Harus ada huruf besar"),
-    "lowercase": (lambda p: re.search(r"[a-z]", p) is not None, "Harus ada huruf kecil"),
-    "number": (lambda p: re.search(r"\d", p) is not None, "Harus ada angka"),
-    "symbol": (lambda p: re.search(r"[^A-Za-z0-9\s]", p) is not None, "Harus ada simbol"),
-}
+
+def _printable_or_unicode(password: str) -> bool:
+    for ch in password:
+        cp = ord(ch)
+        if ch == "\n" or ch == "\r":
+            return False
+        if 0x20 <= cp <= 0x7E:      # ASCII printable (termasuk spasi)
+            continue
+        if cp >= 0xA0:              # Unicode non-kontrol
+            continue
+        return False
+    return True
 
 
-def validate_password_policy(password: str) -> None:
-    failures = [msg for check, msg in PASSWORD_RULES.values() if not check(password)]
-    if failures:
-        raise HTTPException(status_code=422, detail={"password": failures})
+def validate_password_policy(password: str) -> list[str]:
+    """Kembalikan daftar pesan kegagalan; kosong berarti lolos."""
+    failures = []
+    if len(password) < PW_MIN_LEN:
+        failures.append(f"Minimal {PW_MIN_LEN} karakter")
+    if len(password) > PW_MAX_LEN:
+        failures.append(f"Maksimal {PW_MAX_LEN} karakter")
+    if not _printable_or_unicode(password):
+        failures.append("Hanya karakter yang dapat dicetak (ASCII, spasi, Unicode)")
+    if not failures:
+        from zxcvbn import zxcvbn
+        result = zxcvbn(password, max_length=PW_MAX_LEN)
+        if result["score"] < PW_MIN_SCORE:
+            suggestions = ", ".join(result["feedback"]["suggestions"][:2]) or "Gunakan frasa sandi yang lebih panjang dan unik"
+            failures.append(f"Kata sandi terlalu mudah ditebak atau umum digunakan. {suggestions}")
+    return failures
 
 
 def hash_password(password: str) -> str:
@@ -109,19 +137,63 @@ def verify_password(password: str, hashed: str) -> bool:
 class RegisterIn(BaseModel):
     full_name: str = Field(min_length=1, max_length=100)
     email: EmailStr
-    password: str = Field(max_length=128)
-    confirm_password: str = Field(max_length=128)
+    password: str = Field(max_length=PW_MAX_LEN)
+    confirm_password: str = Field(max_length=PW_MAX_LEN)
+    captcha_id: str = Field(min_length=1)   # token soal dari /api/auth/captcha
+    captcha_answer: str = Field(min_length=1)
 
     @field_validator("password")
     @classmethod
     def policy(cls, v):
-        validate_password_policy(v)
+        failures = validate_password_policy(v)
+        if failures:
+            raise HTTPException(status_code=422, detail={"password": failures})
         return v
 
 
 class LoginIn(BaseModel):
     email: EmailStr
-    password: str = Field(max_length=128)
+    password: str = Field(max_length=PW_MAX_LEN)
+    captcha_id: str = Field(min_length=1)
+    captcha_answer: str = Field(min_length=1)
+
+
+# ------------------------------------------- captcha perkalian (bot prevention)
+#
+# Sederhana: server buat soal perkalian acak, jawaban disematkan di token HMAC
+# (stateless — tidak perlu simpan state di DB/session). Token masa berlaku 10 menit.
+
+CAPTCHA_HMAC_KEY = os.environ["PERKUTUT_ALTCHA_HMAC_KEY"]  # reuse key env, fail fast
+
+
+def captcha_create() -> dict:
+    a = secrets.randbelow(9) + 2   # 2..10
+    b = secrets.randbelow(9) + 2   # 2..10
+    expires = int((datetime.now(timezone.utc) + timedelta(minutes=10)).timestamp())
+    payload = f"{a}x{b}.{expires}"
+    sig = hmac.new(CAPTCHA_HMAC_KEY.encode(), payload.encode(), hashlib.sha256).hexdigest()[:16]
+    return {"id": f"{payload}.{sig}", "question": f"Berapa hasil dari {a} × {b}?"}
+
+
+def captcha_verify(captcha_id: str, answer: str) -> bool:
+    try:
+        question, expires, sig = captcha_id.split(".")   # format: "axb.expires.sig"
+        payload = f"{question}.{expires}"
+        expected = hmac.new(CAPTCHA_HMAC_KEY.encode(), payload.encode(), hashlib.sha256).hexdigest()[:16]
+        if not hmac.compare_digest(sig, expected):
+            return False
+        if int(expires) < datetime.now(timezone.utc).timestamp():
+            return False
+        a, b = question.split("x")
+        return answer.strip() == str(int(a) * int(b))
+    except (ValueError, AttributeError):
+        return False
+
+
+def require_captcha(data) -> None:
+    """Guard captcha bersama untuk register & login."""
+    if not captcha_verify(data.captcha_id, data.captcha_answer):
+        raise HTTPException(status_code=400, detail={"captcha": "Jawaban captcha salah atau kedaluwarsa."})
 
 
 # --------------------------------------------------------------- session
@@ -175,8 +247,15 @@ def require_user(request: Request):
 # ------------------------------------------------------------- endpoints
 
 
+@app.get("/api/auth/captcha")
+def captcha():
+    """Soal perkalian acak untuk bot prevention (stateless, HMAC-signed)."""
+    return captcha_create()
+
+
 @app.post("/api/auth/register", status_code=201)
 def register(payload: RegisterIn, response: Response):
+    require_captcha(payload)
     if payload.password != payload.confirm_password:
         raise HTTPException(status_code=422, detail={"confirm_password": ["Kata sandi belum sama"]})
     pw_hash = hash_password(payload.password)
@@ -194,6 +273,7 @@ def register(payload: RegisterIn, response: Response):
 
 @app.post("/api/auth/login")
 def login(payload: LoginIn, response: Response):
+    require_captcha(payload)
     with db() as conn:
         row = conn.execute(
             "SELECT id, full_name, email, password_hash FROM users WHERE email = %s",
@@ -213,6 +293,12 @@ def logout(request: Request, response: Response):
             conn.execute("DELETE FROM sessions WHERE id = %s", (_hash_token(token),))
     response.delete_cookie("perkutut_session", path="/")
     return {"ok": True}
+
+
+@app.post("/api/auth/forgot-password")
+def forgot_password():
+    """Kontrak §5.1 — alur pemulihan: lapor admin, tidak ada reset mandiri."""
+    return {"message": "Lupa kata sandi? Silakan lapor admin untuk reset."}
 
 
 @app.get("/api/auth/session")
