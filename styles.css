@@ -3043,8 +3043,82 @@ body::-webkit-scrollbar {
   color: #39845d;
 }
 
-.auth-card--join .auth-submit {
+/* Floating password meter: bar + label, expand inline di bawah field */
+.password-meter {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 10px 13px;
+  border: 1px solid rgba(134, 68, 162, 0.24);
+  border-radius: 10px;
+  background: #faf9fd;
+  animation: password-meter-in 160ms ease;
+}
+
+.password-meter[hidden] {
+  display: none;
+}
+
+.password-meter-bar {
+  display: block;
+  height: 5px;
+  border-radius: 99px;
+  background: #eceaf2;
+  overflow: hidden;
+}
+
+.password-meter-bar span {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: 99px;
+  background: #e5484d;
+  transition: width 180ms ease, background 180ms ease;
+}
+
+.password-meter-label {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: #6d6880;
+}
+
+@keyframes password-meter-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Captcha perkalian (bot prevention sederhana) */
+.auth-field--captcha {
+  display: grid;
+  gap: 7px;
   margin-top: 2px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: #4a4458;
+}
+
+.auth-captcha-refresh {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #6d6880;
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.auth-captcha-refresh:hover {
+  background: rgba(134, 68, 162, 0.1);
+  color: #8644a2;
+}
+
+.auth-card .auth-submit {
+  margin-top: 14px;
 }
 
 .auth-card--join .auth-switch {

@@ -56,30 +56,43 @@
           <span>Password</span>
           <span class="auth-control">
             <img class="auth-field-icon" src="../assets/svg/icon-lock.svg" width="14" height="14" alt="" />
-            <input name="password" type="password" autocomplete="new-password" placeholder="Buat kata sandi" data-allowlist="password" aria-describedby="password-rules" minlength="8" maxlength="128" required />
+            <input name="password" type="password" autocomplete="new-password" placeholder="Buat kata sandi" data-allowlist="" aria-describedby="password-rules" minlength="15" maxlength="64" required />
             <button class="auth-password-toggle" type="button" data-password-toggle aria-label="Tampilkan kata sandi" aria-pressed="false">
               <img src="../assets/svg/icon-eye.svg" width="14" height="14" alt="" />
             </button>
           </span>
-          <ul class="password-rules" id="password-rules" aria-label="Persyaratan kata sandi" hidden>
-            <li data-password-rule="length"><span aria-hidden="true">○</span> Minimal 8 karakter</li>
-            <li data-password-rule="lowercase"><span aria-hidden="true">○</span> Huruf kecil</li>
-            <li data-password-rule="uppercase"><span aria-hidden="true">○</span> Huruf besar</li>
-            <li data-password-rule="number"><span aria-hidden="true">○</span> Angka</li>
-            <li data-password-rule="symbol"><span aria-hidden="true">○</span> Simbol</li>
-          </ul>
+          <div class="password-meter" data-password-meter hidden>
+            <div class="password-meter-bar"><span data-password-meter-fill></span></div>
+            <p class="password-meter-label" data-password-meter-label></p>
+            <ul class="password-rules" id="password-rules" aria-label="Persyaratan kata sandi">
+              <li data-password-rule="length"><span aria-hidden="true">○</span> 15–64 karakter</li>
+              <li data-password-rule="common"><span aria-hidden="true">○</span> Tidak mudah ditebak / umum</li>
+              <li data-password-rule="charset"><span aria-hidden="true">○</span> Huruf, angka, spasi, atau simbol bebas</li>
+            </ul>
+          </div>
         </label>
 
         <label class="auth-field">
           <span>Confirm Password</span>
           <span class="auth-control">
             <img class="auth-field-icon" src="../assets/svg/icon-lock.svg" width="14" height="14" alt="" />
-            <input name="confirmPassword" type="password" autocomplete="new-password" placeholder="Ulangi kata sandi" data-allowlist="password" minlength="8" maxlength="128" required />
+            <input name="confirmPassword" type="password" autocomplete="new-password" placeholder="Ulangi kata sandi" data-allowlist="" minlength="15" maxlength="64" required />
             <button class="auth-password-toggle" type="button" data-password-toggle aria-label="Tampilkan kata sandi" aria-pressed="false">
               <img src="../assets/svg/icon-eye.svg" width="14" height="14" alt="" />
             </button>
           </span>
         </label>
+
+        <div class="auth-field auth-field--captcha" data-captcha>
+          <span data-captcha-question>Memuat soal verifikasi…</span>
+          <span class="auth-control">
+            <img class="auth-field-icon" src="../assets/svg/icon-lock.svg" width="14" height="14" alt="" />
+            <input name="captchaAnswer" type="text" inputmode="numeric" autocomplete="off" placeholder="Jawaban" data-allowlist="digits" aria-label="Jawaban verifikasi" maxlength="4" required />
+            <button class="auth-captcha-refresh" type="button" data-captcha-refresh aria-label="Ganti soal">
+              <img src="../assets/svg/icon-refresh.svg" width="14" height="14" alt="" />
+            </button>
+          </span>
+        </div>
 
         <button class="auth-submit" type="submit">Buat Akun</button>
         <p class="auth-message" data-auth-message role="status" aria-live="polite"></p>
@@ -88,6 +101,7 @@
       <p class="auth-switch">Sudah punya akun? <a href="../sign-in/">Masuk</a></p>
     </section>
   </main>
+  <script src="../assets/js/zxcvbn.js" defer></script>
   <script src="../script.js" defer></script>
 </body>
 </html>
