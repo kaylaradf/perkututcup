@@ -157,11 +157,30 @@
     const isJoinForm = form.dataset.authForm === "join";
     const passwordField = password?.closest(".auth-field");
     const passwordRules = passwordField?.querySelector(".password-rules");
+
+    // ---- captcha perkalian: load soal, tombol refresh
+    const captchaBox = form.querySelector("[data-captcha]");
+    const captchaQuestion = form.querySelector("[data-captcha-question]");
+    const loadCaptcha = async () => {
+      if (!captchaBox || !captchaQuestion) return;
+      captchaQuestion.textContent = "Memuat soal verifikasi…";
+      try {
+        const res = await fetch("/api/auth/captcha");
+        const data = await res.json();
+        captchaBox.dataset.captchaId = data.id;
+        captchaQuestion.textContent = data.question;
+      } catch {
+        captchaQuestion.textContent = "Gagal memuat soal. Klik ikon untuk coba lagi.";
+      }
+    };
+    loadCaptcha();
+    form.querySelector("[data-captcha-refresh]")?.addEventListener("click", loadCaptcha);
+
     const invalidCharacters = {
       name: /[^\p{L}\p{M} .'’-]/gu,
       email: /[^A-Za-z0-9.!#$%&'*+/=?^_`{|}~@-]/g,
       identifier: /[^A-Za-z0-9.!#$%&'*+/=?^_`{|}~@-]/g,
-      password: /[^\x20-\x7E]/g,
+      digits: /\D/g,
     };
 
     form.querySelectorAll("[data-allowlist]").forEach((input) => {
@@ -180,15 +199,26 @@
       });
     });
 
+    const meter = form.querySelector("[data-password-meter]");
+    const meterFill = form.querySelector("[data-password-meter-fill]");
+    const meterLabel = form.querySelector("[data-password-meter-label]");
+    const PW_MIN = 15, PW_MAX = 64;
+
+    const SCORE_LABELS = ["Sangat lemah", "Lemah", "Cukup", "Kuat", "Sangat kuat"];
+    const SCORE_COLORS = ["#e5484d", "#e5784d", "#e2c34d", "#6bc26b", "#3fa650"];
+
     const validatePassword = () => {
       if (!password || !isJoinForm) return;
       const value = password.value;
       const checks = {
-        length: value.length >= 8,
-        lowercase: /[a-z]/.test(value),
-        uppercase: /[A-Z]/.test(value),
-        number: /\d/.test(value),
-        symbol: /[^A-Za-z0-9\s]/.test(value),
+        length: value.length >= PW_MIN && value.length <= PW_MAX,
+        common: value.length >= PW_MIN && typeof window.zxcvbn === "function"
+          ? window.zxcvbn(value.slice(0, 64)).score >= 3
+          : value.length >= PW_MIN,
+        charset: value.length === 0 || [...value].every((ch) => {
+          const cp = ch.codePointAt(0);
+          return (cp >= 0x20 && cp <= 0x7E) || cp >= 0xA0;
+        }),
       };
       const isStrong = Object.values(checks).every(Boolean);
 
@@ -199,9 +229,25 @@
         if (marker) marker.textContent = met ? "✓" : "○";
       });
 
+      // floating meter: tampil saat mengetik, hilang saat kosong/fokus keluar
+      if (meter) {
+        const show = value.length > 0 && document.activeElement === password;
+        meter.hidden = !show;
+        if (value.length > 0 && meterFill && meterLabel) {
+          let score = 0;
+          if (typeof window.zxcvbn === "function" && value.length >= PW_MIN) {
+            score = window.zxcvbn(value.slice(0, 64)).score;
+          }
+          const pct = Math.min(100, Math.round((value.length / PW_MIN) * 60 + score * 8));
+          meterFill.style.width = `${Math.min(100, pct)}%`;
+          meterFill.style.background = SCORE_COLORS[score];
+          meterLabel.textContent = `${SCORE_LABELS[score]}${value.length < PW_MIN ? ` — ${PW_MIN - value.length} karakter lagi` : ""}`;
+        }
+      }
+
       password.setCustomValidity(
         value && !isStrong
-          ? "Gunakan minimal 8 karakter dengan huruf besar, huruf kecil, angka, dan simbol."
+          ? `Gunakan minimal ${PW_MIN} karakter dan hindari kata sandi yang umum digunakan.`
           : ""
       );
     };
@@ -241,6 +287,13 @@
         message.textContent = isJoinForm ? "Mendaftarkan akun..." : "Memverifikasi akun...";
       }
 
+      const captchaId = form.querySelector("[data-captcha]")?.dataset.captchaId;
+      const captchaAnswer = form.captchaAnswer?.value?.trim() || "";
+      if (!captchaId || !captchaAnswer) {
+        if (message) message.textContent = "Jawab soal verifikasi terlebih dahulu.";
+        return;
+      }
+
       try {
         const endpoint = isJoinForm ? "/api/auth/register" : "/api/auth/login";
         const body = isJoinForm
@@ -249,8 +302,10 @@
               email: form.email.value.trim(),
               password: password.value,
               confirm_password: confirmation.value,
+              captcha_id: captchaId,
+              captcha_answer: captchaAnswer,
             }
-          : { email: form.email.value.trim(), password: password.value };
+          : { email: form.email.value.trim(), password: password.value, captcha_id: captchaId, captcha_answer: captchaAnswer };
 
         const response = await fetch(endpoint, {
           method: "POST",
@@ -277,6 +332,10 @@
           if (message) message.textContent = "Email sudah terdaftar. Gunakan email lain.";
         } else if (response.status === 401) {
           if (message) message.textContent = data.detail || "Email atau kata sandi salah.";
+        } else if (response.status === 400 && data.detail?.captcha) {
+          if (message) message.textContent = data.detail.captcha;
+          loadCaptcha();
+          form.captchaAnswer.value = "";
         } else {
           if (message) message.textContent = data.detail || "Terjadi kesalahan. Coba lagi.";
         }
@@ -499,7 +558,7 @@
     link.addEventListener("click", (event) => {
       event.preventDefault();
       const message = link.closest(".auth-card")?.querySelector("[data-auth-message]");
-      if (message) message.textContent = "Pemulihan kata sandi belum tersedia.";
+      if (message) message.textContent = "Lupa kata sandi? Silakan lapor admin untuk reset.";
     });
   });
 })();
