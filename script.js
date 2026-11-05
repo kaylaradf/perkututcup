@@ -229,25 +229,61 @@
     });
     confirmation?.addEventListener("input", validateConfirmation);
 
-    form.addEventListener("submit", (event) => {
+    form.addEventListener("submit", async (event) => {
       event.preventDefault();
       validatePassword();
       validateConfirmation();
       if (!form.reportValidity()) return;
 
+      const submitButton = form.querySelector(".auth-submit");
+      if (submitButton) submitButton.disabled = true;
       if (message) {
-        message.textContent = form.dataset.authForm === "join"
-          ? "Formulir siap dihubungkan ke layanan pendaftaran."
-          : "Formulir siap dihubungkan ke layanan akun.";
+        message.textContent = isJoinForm ? "Mendaftarkan akun..." : "Memverifikasi akun...";
       }
 
-      if (!isJoinForm) {
-        try {
-          sessionStorage.setItem("perkutut-auth", "1");
-        } catch (error) {
-          /* storage unavailable: the dashboard guard will fall back to 404 */
+      try {
+        const endpoint = isJoinForm ? "/api/auth/register" : "/api/auth/login";
+        const body = isJoinForm
+          ? {
+              full_name: form.fullName.value.trim(),
+              email: form.email.value.trim(),
+              password: password.value,
+              confirm_password: confirmation.value,
+            }
+          : { email: form.email.value.trim(), password: password.value };
+
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify(body),
+        });
+        const data = await response.json().catch(() => ({}));
+
+        if (response.ok) {
+          if (message) message.textContent = isJoinForm
+            ? "Akun berhasil dibuat. Mengalihkan ke dashboard..."
+            : "Login berhasil. Mengalihkan ke dashboard...";
+          window.location.href = "../dashboard/profile/";
+          return;
         }
-        window.location.href = "../dashboard/profile/";
+
+        if (response.status === 422 && data.detail) {
+          const first = Array.isArray(data.detail)
+            ? data.detail.map((issue) => issue.msg).join(", ")
+            : Object.values(data.detail).flat().join(", ");
+          if (message) message.textContent = first || "Data formulir tidak valid.";
+        } else if (response.status === 409) {
+          if (message) message.textContent = "Email sudah terdaftar. Gunakan email lain.";
+        } else if (response.status === 401) {
+          if (message) message.textContent = data.detail || "Email atau kata sandi salah.";
+        } else {
+          if (message) message.textContent = data.detail || "Terjadi kesalahan. Coba lagi.";
+        }
+      } catch (error) {
+        if (message) message.textContent = "Tidak dapat menghubungi server. Coba lagi nanti.";
+      } finally {
+        if (submitButton) submitButton.disabled = false;
       }
     });
   });
@@ -282,6 +318,182 @@
       });
     });
   });
+
+  document.querySelectorAll("[data-logout]").forEach((link) => {
+    link.addEventListener("click", async (event) => {
+      event.preventDefault();
+      try {
+        await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" });
+      } catch (error) {
+        /* tetap arahkan ke sign-in walau request logout gagal */
+      }
+      window.location.href = link.getAttribute("href");
+    });
+  });
+
+  // ------------------------------------------------ dashboard: profil & tim
+
+  const DASH_EMPTY = (label) => `${label} belum diisi`;
+
+  const setPlaceholder = (el, text) => {
+    if (el) el.textContent = text;
+  };
+
+  const dashboardRoot = document.querySelector("[data-dash-form='profile']");
+
+  if (dashboardRoot) {
+    const form = dashboardRoot;
+    const inputs = {
+      fullName: form.querySelector("input[name='fullName']"),
+      institution: form.querySelector("input[name='institution']"),
+      email: form.querySelector("input[name='email']"),
+      phone: form.querySelector("input[name='phone']"),
+      birthDate: form.querySelector("input[name='birthDate']"),
+      instagram: form.querySelector("input[name='instagram']"),
+    };
+    const status = form.querySelector("[data-dash-status]");
+    const avatar = document.querySelector(".dash-avatar");
+
+    const displayDate = (iso) => {
+      if (!iso) return "";
+      const [y, m, d] = iso.split("-");
+      return `${d}/${m}/${y}`;
+    };
+    const parseDate = (text) => {
+      const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(text.trim());
+      return m ? `${m[3]}-${m[2]}-${m[1]}` : null;
+    };
+
+    const fillForm = (user) => {
+      inputs.fullName.value = user.full_name || "";
+      inputs.institution.value = user.institution || "";
+      inputs.email.value = user.email || "";
+      inputs.phone.value = user.phone || "";
+      inputs.birthDate.value = user.birth_date ? displayDate(user.birth_date) : "";
+      inputs.instagram.value = user.instagram_handle || "";
+      inputs.fullName.placeholder = user.full_name ? "" : DASH_EMPTY("Nama lengkap");
+      inputs.institution.placeholder = user.institution ? "" : DASH_EMPTY("Institusi");
+      inputs.phone.placeholder = user.phone ? "" : DASH_EMPTY("Nomor telepon");
+      inputs.birthDate.placeholder = user.birth_date ? "" : "dd/mm/yyyy";
+      inputs.instagram.placeholder = user.instagram_handle ? "" : DASH_EMPTY("Instagram");
+      if (avatar && user.full_name) avatar.textContent = user.full_name.trim().charAt(0).toUpperCase();
+    };
+
+    (async () => {
+      try {
+        const [meRes, teamRes] = await Promise.all([
+          fetch("/api/me", { credentials: "same-origin" }),
+          fetch("/api/team", { credentials: "same-origin" }),
+        ]);
+        if (meRes.status === 401) {
+          window.location.replace("/404.html");
+          return;
+        }
+        const me = await meRes.json();
+        fillForm(me.user || {});
+
+        // Metric registration: email terisi + terverifikasi sisi form = "Verified"
+        setPlaceholder(document.querySelector("[data-registration-status]"),
+          me.user && me.user.email ? "Verified" : "Belum lengkap");
+
+        const teamData = await teamRes.json();
+        const team = teamData.team;
+        const countEl = document.querySelector("[data-team-member-count]");
+        const trackEl = document.querySelector("[data-team-track]");
+        const codeEl = document.querySelector("[data-team-code]");
+        const leaderEl = document.querySelector("[data-team-leader-name]");
+        const membersEl = document.querySelector("[data-team-members]");
+        const tpl = document.querySelector("[data-team-member-template]");
+
+        if (!team) {
+          setPlaceholder(countEl, "0 / 1");
+          setPlaceholder(trackEl, "—");
+          setPlaceholder(codeEl, "# belum ada tim");
+          if (membersEl) {
+            membersEl.innerHTML =
+              '<p class="proof-hint" style="padding:.4rem 0">Belum tergabung dalam tim. Data tim akan muncul di sini setelah kamu bergabung.</p>';
+          }
+        } else {
+          const n = team.members.length;
+          setPlaceholder(countEl, `${n} / ${Math.max(n, 1)}`);
+          setPlaceholder(trackEl, team.track || "—");
+          setPlaceholder(codeEl, `# ${team.code}`);
+          if (leaderEl) {
+            const leader = team.members.find((m) => m.role === "leader") || team.members[0];
+            if (leader) leaderEl.textContent = leader.full_name;
+          }
+          if (membersEl && tpl) {
+            membersEl.innerHTML = "";
+            team.members.forEach((m) => {
+              const node = tpl.content.cloneNode(true);
+              const strong = node.querySelector("strong");
+              const small = node.querySelector("small");
+              strong.textContent = m.full_name;
+              if (m.role === "leader") {
+                const badge = document.createElement("span");
+                badge.className = "team-badge";
+                badge.textContent = "YOU";
+                strong.appendChild(badge);
+              }
+              small.textContent = `${m.role === "leader" ? "Team Leader" : "Member"}${m.institution ? " • " + m.institution : ""}`;
+              membersEl.appendChild(node);
+            });
+          }
+        }
+      } catch (error) {
+        setPlaceholder(status, "Gagal memuat data profil.");
+      }
+    })();
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (!form.reportValidity()) return;
+
+      const birthISO = parseDate(inputs.birthDate.value);
+      if (inputs.birthDate.value && !birthISO) {
+        setPlaceholder(status, "Format tanggal lahir harus dd/mm/yyyy.");
+        return;
+      }
+
+      const saveButton = form.querySelector(".btn-save");
+      if (saveButton) saveButton.disabled = true;
+      setPlaceholder(status, "Menyimpan perubahan...");
+
+      try {
+        const response = await fetch("/api/me", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({
+            full_name: inputs.fullName.value.trim(),
+            institution: inputs.institution.value.trim(),
+            email: inputs.email.value.trim(),
+            phone: inputs.phone.value.trim(),
+            birth_date: birthISO,
+            instagram_handle: inputs.instagram.value.trim(),
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (response.ok) {
+          fillForm(data.user || {});
+          if (avatar && data.user.full_name) {
+            avatar.textContent = data.user.full_name.trim().charAt(0).toUpperCase();
+          }
+          setPlaceholder(status, "Perubahan tersimpan.");
+        } else if (response.status === 409) {
+          setPlaceholder(status, "Email sudah dipakai akun lain.");
+        } else if (response.status === 401) {
+          window.location.replace("/404.html");
+        } else {
+          setPlaceholder(status, data.detail || "Gagal menyimpan. Coba lagi.");
+        }
+      } catch (error) {
+        setPlaceholder(status, "Tidak dapat menghubungi server.");
+      } finally {
+        if (saveButton) saveButton.disabled = false;
+      }
+    });
+  }
 
   document.querySelectorAll("[data-forgot-password]").forEach((link) => {
     link.addEventListener("click", (event) => {
