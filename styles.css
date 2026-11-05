@@ -3093,19 +3093,41 @@ body::-webkit-scrollbar {
   display: grid;
   gap: 7px;
   margin-top: 2px;
+}
+
+.captcha-question {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px dashed rgba(134, 68, 162, 0.35);
+  border-radius: 10px;
+  background: #faf9fd;
   font-size: 12px;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   color: #4a4458;
 }
 
+.captcha-question.is-error {
+  border-color: rgba(229, 72, 77, 0.5);
+  color: #b23a3e;
+}
+
+.auth-field--captcha .auth-control {
+  display: flex;
+}
+
+/* tombol refresh di dalam field jawaban, di sisi kanan */
 .auth-captcha-refresh {
   display: inline-grid;
   place-items: center;
-  width: 26px;
-  height: 26px;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  margin-left: 4px;
   padding: 0;
   border: 0;
-  border-radius: 6px;
+  border-radius: 8px;
   background: transparent;
   color: #6d6880;
   cursor: pointer;
@@ -3115,6 +3137,11 @@ body::-webkit-scrollbar {
 .auth-captcha-refresh:hover {
   background: rgba(134, 68, 162, 0.1);
   color: #8644a2;
+}
+
+.auth-captcha-refresh img {
+  width: 15px;
+  height: 15px;
 }
 
 .auth-card .auth-submit {
