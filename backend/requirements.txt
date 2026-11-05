@@ -1,0 +1,6 @@
+fastapi
+uvicorn[standard]
+psycopg[binary]
+bcrypt
+pydantic-settings
+email-validator
