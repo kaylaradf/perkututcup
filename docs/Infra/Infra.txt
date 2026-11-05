@@ -5,3 +5,22 @@ reverse-proxy
 dns  web    
       |
     database
+
+
+FW/reverse proxy
+ens33; 172.16.1.1/24  --BRIDGE
+ens33; 192.168.10.1/24 --LanSegment-INTERNAL
+ens36; DHCP   --NAT
+
+DNS-SERVER
+ens33; 192.168.10.12/24 --LanSegment-INTERNAL
+ens36; DHCP --NAT
+
+WEB-SERVER
+ens33; 192.168.10.11/24 --LanSegment-INTERNAL
+ens36; 224.255.255.1/30 --LanSegment-DATABASE
+ens37; DHCP --NAT
+
+DATABASE-SERVER
+ens33; 224.255.255.2/30 --LanSegment-DATABASE
+ens36; DHCP --NAT
