@@ -10,3 +10,7 @@ Thumbs.db
 
 # local tooling artifacts
 .playwright-mcp/
+
+# secrets & local env
+.env
+.venv/
