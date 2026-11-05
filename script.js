@@ -158,19 +158,22 @@
     const passwordField = password?.closest(".auth-field");
     const passwordRules = passwordField?.querySelector(".password-rules");
 
-    // ---- captcha perkalian: load soal, tombol refresh
+    // ---- captcha perkalian: load soal, tombol refresh, auto-retry
     const captchaBox = form.querySelector("[data-captcha]");
     const captchaQuestion = form.querySelector("[data-captcha-question]");
     const loadCaptcha = async () => {
       if (!captchaBox || !captchaQuestion) return;
       captchaQuestion.textContent = "Memuat soal verifikasi…";
+      captchaQuestion.classList.remove("is-error");
       try {
         const res = await fetch("/api/auth/captcha");
+        if (!res.ok) throw new Error(res.status);
         const data = await res.json();
         captchaBox.dataset.captchaId = data.id;
         captchaQuestion.textContent = data.question;
       } catch {
-        captchaQuestion.textContent = "Gagal memuat soal. Klik ikon untuk coba lagi.";
+        captchaQuestion.textContent = "Gagal memuat soal — klik ikon ↻ untuk coba lagi.";
+        captchaQuestion.classList.add("is-error");
       }
     };
     loadCaptcha();
