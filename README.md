@@ -70,7 +70,8 @@ perkututcup/
     ├── AUTH-UPDATES.md         # Auth/password/CAPTCHA
     ├── ACCOUNT-LOCKOUT.md      # Lockout & pelaporan error
     ├── RATE-LIMITING.md        # Rate limiting
-    └── STAGING-DEPLOY.md       # Deploy staging
+    ├── STAGING-DEPLOY.md       # Ringkas konfigurasi deploy staging (GitHub Actions)
+    └── DEPLOY-PIPELINE.md      # Mekanisme deploy server lengkap (CI + manual, runbook)
 ```
 
 ## 3. Penjelasan file
@@ -110,7 +111,7 @@ Token utama (`styles.css` `:root`): `--obsidian-top`, `--mid`, `--deep-footer`,
 ### Assets & Docs
 
 - `assets/fonts/` — 3 font lokal. `assets/images/` — logo/maskot/sponsor/tim + thumbnail dashboard. `assets/svg/` — ikon publik dan dashboard.
-- `docs/` — changelog (`UPDATES.md`), asesmen/kontrak (`ASSESSMENT.md`), frontend (`FRONTEND.md`), auth/CAPTCHA (`AUTH-UPDATES.md`), lockout/error (`ACCOUNT-LOCKOUT.md`), rate limit (`RATE-LIMITING.md`), deploy staging (`STAGING-DEPLOY.md`).
+- `docs/` — changelog (`UPDATES.md`), asesmen/kontrak (`ASSESSMENT.md`), frontend (`FRONTEND.md`), auth/CAPTCHA (`AUTH-UPDATES.md`), lockout/error (`ACCOUNT-LOCKOUT.md`), rate limit (`RATE-LIMITING.md`), deploy staging (`STAGING-DEPLOY.md`, `DEPLOY-PIPELINE.md`).
 
 ## 4. Struktur web
 
