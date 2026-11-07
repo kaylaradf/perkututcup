@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0b0c10" id="meta-theme-color" />
+  <title>Perkutut Cup 2026</title>
+  <link rel="icon" type="image/svg+xml" href="/assets/svg/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&family=Pixelify+Sans:wght@400;600;700&family=Poppins:wght@400;500;700&family=Space+Mono&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/dashboard.css" />
+  <!-- Anti-FOUC: resolve theme before first paint -->
+  <script>
+    (function () {
+      var saved = localStorage.getItem('dash-theme');
+      var prefer = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      var theme = saved || prefer;
+      if (theme === 'light') document.documentElement.setAttribute('data-theme', 'light');
+    })();
+  </script>
+  <!-- __APP_STATE__ injected by server -->
+  <script src="/assets/js/router.js" defer></script>
+  <script src="/assets/js/pages/dashboard-common.js" defer></script>
+  <script src="/assets/js/pages/dashboard-profile.js" defer></script>
+  <script src="/assets/js/pages/dashboard-submission.js" defer></script>
+  <script src="/assets/js/pages/dashboard-competitions.js" defer></script>
+  <script src="/assets/js/pages/dashboard-users.js" defer></script>
+</head>
+<body class="dash-body">
+  <div id="view"></div>
+</body>
+</html>

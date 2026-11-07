@@ -1,4 +1,24 @@
 (() => {
+  // Katalog kompetisi publik
+  const renderCompetitionCatalog = async () => {
+    const grid = document.getElementById("competition-grid");
+    if (!grid) return;
+    const escape = (value) => String(value ?? "").replace(/[&<>\"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[c]);
+    try {
+      const response = await fetch("/api/competitions");
+      if (!response.ok) throw new Error(`Server merespons ${response.status}.`);
+      const data = await response.json();
+      const items = data.competitions || [];
+      grid.setAttribute("aria-busy", "false");
+      if (!items.length) { grid.innerHTML = '<p class="catalog-message">Belum ada kompetisi yang tersedia.</p>'; return; }
+      grid.innerHTML = items.map((c) => {
+        const open = c.is_open && c.status === "OPEN";
+        const status = c.status === "UPCOMING" ? "SEGERA HADIR" : open ? "PENDAFTARAN DIBUKA" : "PENDAFTARAN DITUTUP";
+        return `<article class="comp-card"><div class="comp-top"><div class="comp-icon" aria-hidden="true">🏆</div><span class="comp-tag">${escape(c.audience || "NASIONAL")}</span></div><div><h3>${escape(c.name)}</h3><p class="comp-audience">${escape(c.audience || "SEMUA JENJANG")}</p></div><p class="desc">${escape(c.description || "Informasi kompetisi akan segera tersedia.")}</p><span class="comp-tag">${escape(c.participation_type === "TEAM" ? "TIM" : "INDIVIDU")}</span>${open ? `<a class="btn btn-primary btn-block" href="join/?competition=${encodeURIComponent(c.slug)}">DAFTAR <img src="assets/svg/arrow-up-right.svg" alt="" width="17" height="17" /></a>` : `<span class="btn btn-muted" aria-disabled="true">${status}</span>`}</article>`;
+      }).join("");
+    } catch (error) { grid.setAttribute("aria-busy", "false"); grid.innerHTML = `<p class="catalog-message" role="status">Daftar kompetisi belum dapat dimuat. ${escape(error.message)} Silakan coba lagi nanti.</p>`; }
+  };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", renderCompetitionCatalog); else renderCompetitionCatalog();
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   // ------------------------------------------------ dialog error autentikasi
@@ -255,6 +275,112 @@
     loadCaptcha();
     form.querySelector("[data-captcha-refresh]")?.addEventListener("click", loadCaptcha);
 
+    // ---- competition loading & selection (khusus join)
+    let competitionsList = [];
+    const compSelect = form.querySelector('select[name="competition"]');
+    const compCard = form.querySelector("[data-competition-card]");
+    const compTag = form.querySelector("[data-competition-tag]");
+    const compMeta = form.querySelector("[data-competition-meta]");
+
+    const updateCompetitionDisplay = (selectedSlug) => {
+      if (!compCard) return;
+      const comp = competitionsList.find((c) => c.slug === selectedSlug);
+      if (!comp) {
+        compCard.hidden = true;
+        return;
+      }
+      compCard.hidden = false;
+      if (compTag) {
+        const typeLabel = comp.participation_type === "TEAM"
+          ? `Tim (${comp.min_team_members}–${comp.max_team_members} Orang)`
+          : "Individu";
+        compTag.innerHTML = `<span>${comp.name}</span> <span class="competition-card-badge">${typeLabel}</span>`;
+      }
+      if (compMeta) {
+        const audienceText = comp.audience ? `Jenjang: ${comp.audience}` : "";
+        const descText = comp.description || "";
+        compMeta.textContent = [audienceText, descText].filter(Boolean).join(" • ");
+      }
+    };
+
+    const loadCompetitions = async () => {
+      if (!compSelect) return;
+      try {
+        const res = await fetch("/api/competitions");
+        if (!res.ok) throw new Error(String(res.status));
+        const data = await res.json();
+        competitionsList = data.competitions || [];
+        const openComps = competitionsList.filter((c) => c.is_open);
+
+        compSelect.innerHTML = "";
+        if (openComps.length === 0) {
+          const opt = document.createElement("option");
+          opt.value = "";
+          opt.textContent = "Belum ada pendaftaran kompetisi yang dibuka";
+          compSelect.appendChild(opt);
+          return;
+        }
+
+        const placeholderOpt = document.createElement("option");
+        placeholderOpt.value = "";
+        placeholderOpt.textContent = "— Pilih Kompetisi —";
+        compSelect.appendChild(placeholderOpt);
+
+        openComps.forEach((comp) => {
+          const opt = document.createElement("option");
+          opt.value = comp.slug;
+          const typeLabel = comp.participation_type === "TEAM" ? "Tim" : "Individu";
+          opt.textContent = `${comp.name} (${comp.audience}) · ${typeLabel}`;
+          compSelect.appendChild(opt);
+        });
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const targetSlug = urlParams.get("competition")?.trim().toLowerCase();
+
+        if (targetSlug) {
+          const matched = openComps.find((c) => c.slug === targetSlug);
+          if (matched) {
+            compSelect.value = targetSlug;
+            updateCompetitionDisplay(targetSlug);
+          } else {
+            const closedOrUnknown = competitionsList.find((c) => c.slug === targetSlug);
+            if (closedOrUnknown) {
+              setFieldError("competition", `Kompetisi "${closedOrUnknown.name}" belum membuka pendaftaran.`);
+            } else {
+              setFieldError("competition", `Kompetisi "${targetSlug}" tidak ditemukan.`);
+            }
+          }
+        } else if (openComps.length === 1) {
+          compSelect.value = openComps[0].slug;
+          updateCompetitionDisplay(openComps[0].slug);
+        }
+      } catch (err) {
+        compSelect.innerHTML = '<option value="">Gagal memuat kompetisi</option>';
+      }
+    };
+
+    if (isJoinForm && compSelect) {
+      loadCompetitions();
+      compSelect.addEventListener("change", () => {
+        updateCompetitionDisplay(compSelect.value);
+        if (compSelect.value) {
+          setFieldError("competition", "");
+        }
+      });
+    }
+
+    const validateCompetition = (showInline = false) => {
+      if (!isJoinForm || !compSelect) return true;
+      const val = compSelect.value?.trim();
+      if (!val) {
+        if (showInline) setFieldError("competition", "Pilih kompetisi terlebih dahulu.");
+        else compSelect.setCustomValidity("Pilih kompetisi terlebih dahulu.");
+        return false;
+      }
+      setFieldError("competition", "");
+      return true;
+    };
+
     const invalidCharacters = {
       name: /[^\p{L}\p{M} .'’-]/gu,
       email: /[^A-Za-z0-9.!#$%&'*+/=?^_`{|}~@-]/g,
@@ -279,7 +405,7 @@
     });
 
     const setFieldError = (fieldName, errorMsg) => {
-      const input = form.querySelector(`input[name="${fieldName}"]`);
+      const input = form.querySelector(`input[name="${fieldName}"], select[name="${fieldName}"]`);
       if (!input) return;
       const field = input.closest(".auth-field");
       const errorEl = field?.querySelector(`[data-field-error="${fieldName}"], .auth-field-error`);
@@ -537,6 +663,8 @@
           loadCaptcha();
         } else if (fieldKey === "full_name") {
           indonesianMsg = "Nama lengkap tidak valid.";
+        } else if (fieldKey === "competition") {
+          indonesianMsg = typeof msg === "string" ? msg : "Pilihan kompetisi tidak valid.";
         }
 
         const input = form.querySelector(`input[name="${inputName}"]`);
@@ -583,10 +711,11 @@
       const isPasswordValid = validatePassword(true);
       const isConfirmValid = validateConfirmation(true);
       const isCaptchaValid = validateCaptcha(true);
+      const isCompetitionValid = validateCompetition(true);
 
-      const isValid = isFullNameValid && isEmailValid && isPasswordValid && isConfirmValid && isCaptchaValid;
+      const isValid = isFullNameValid && isEmailValid && isPasswordValid && isConfirmValid && isCaptchaValid && isCompetitionValid;
       if (!isValid) {
-        const firstErrorField = form.querySelector(".auth-field.has-error input");
+        const firstErrorField = form.querySelector(".auth-field.has-error input, .auth-field.has-error select");
         if (firstErrorField) firstErrorField.focus();
         return;
       }
@@ -615,6 +744,7 @@
               confirm_password: confirmation.value,
               captcha_id: captchaId,
               captcha_answer: captchaAnswer,
+              competition: compSelect?.value || undefined,
             }
           : {
               email: form.email.value.trim(),
@@ -656,10 +786,21 @@
           handleValidationErrors(data.detail);
           refreshCaptchaAfterError();
         } else if (response.status === 409) {
-          // Email sudah terdaftar: tampilkan inline di bawah input email
+          // Email atau kompetisi sudah terdaftar: tampilkan inline di bawah input terkait
           if (message) message.textContent = "";
-          setFieldError("email", "Email sudah terdaftar. Gunakan email lain atau silakan masuk.");
-          form.email?.focus();
+          if (data.detail?.competition) {
+            const compMsg = Array.isArray(data.detail.competition)
+              ? data.detail.competition.join(". ")
+              : String(data.detail.competition);
+            setFieldError("competition", compMsg);
+            compSelect?.focus();
+          } else if (data.detail?.email) {
+            setFieldError("email", "Email sudah terdaftar. Gunakan email lain atau silakan masuk.");
+            form.email?.focus();
+          } else {
+            const errorText = typeof data.detail === "string" ? data.detail : "Data pendaftaran sudah terdaftar.";
+            showAuthError(form, errorText);
+          }
           refreshCaptchaAfterError();
         } else if (response.status === 400 && data.detail?.captcha) {
           // Captcha salah: tampilkan inline di bawah input captcha
@@ -784,6 +925,177 @@
       if (avatar && user.full_name) avatar.textContent = user.full_name.trim().charAt(0).toUpperCase();
     };
 
+    let currentProfileUser = null;
+
+    const renderTeam = (team, currentUser) => {
+      const countEl = document.querySelector("[data-team-member-count]");
+      const trackEl = document.querySelector("[data-team-track]");
+      const codeEl = document.querySelector("[data-team-code]");
+      const leaderEl = document.querySelector("[data-team-leader-name]");
+      const membersEl = document.querySelector("[data-team-members]");
+      const tpl = document.querySelector("[data-team-member-template]");
+
+      const copyBtn = document.querySelector("[data-copy-code]");
+      const typeBadge = document.querySelector("[data-comp-type-badge]");
+      const quotaInfo = document.querySelector("[data-comp-quota-info]");
+      const individualNotice = document.querySelector("[data-individual-notice]");
+      const addMemberSection = document.querySelector("[data-add-member-section]");
+      const joinTeamSection = document.querySelector("[data-join-team-section]");
+      const leaveTeamSection = document.querySelector("[data-leave-team-section]");
+      const leaveTeamBtn = document.querySelector("[data-leave-team-btn]");
+
+      if (copyBtn && team && team.code) {
+        copyBtn.onclick = async () => {
+          try {
+            await navigator.clipboard.writeText(team.code);
+            copyBtn.textContent = "Tersalin!";
+            setTimeout(() => { copyBtn.textContent = "Salin"; }, 2000);
+          } catch (e) {
+            prompt("Salin kode tim:", team.code);
+          }
+        };
+      }
+
+      if (!team) {
+        setPlaceholder(countEl, "0 / 1");
+        setPlaceholder(trackEl, "—");
+        setPlaceholder(codeEl, "# belum ada tim");
+        if (typeBadge) typeBadge.textContent = "BELUM ADA TIM";
+        if (quotaInfo) quotaInfo.textContent = "";
+        if (individualNotice) individualNotice.hidden = true;
+        if (addMemberSection) addMemberSection.hidden = true;
+        if (leaveTeamSection) leaveTeamSection.hidden = true;
+        if (joinTeamSection) joinTeamSection.hidden = false;
+        if (membersEl) {
+          membersEl.innerHTML =
+            '<p class="proof-hint" style="padding:.4rem 0">Belum tergabung dalam tim. Masukkan kode tim di bawah atau pilih kompetisi baru.</p>';
+        }
+        return;
+      }
+
+      const n = team.members ? team.members.length : 0;
+      const maxM = team.max_team_members || Math.max(n, 1);
+      const minM = team.min_team_members || 1;
+      const isIndiv = team.participation_type === "INDIVIDUAL" || maxM <= 1;
+
+      setPlaceholder(countEl, `${n} / ${maxM}`);
+      setPlaceholder(trackEl, team.track || "—");
+      setPlaceholder(codeEl, `# ${team.code}`);
+
+      if (leaderEl) {
+        const leader = team.members?.find((m) => m.role === "leader") || team.members?.[0];
+        if (leader) leaderEl.textContent = leader.full_name;
+      }
+
+      if (typeBadge) {
+        typeBadge.textContent = isIndiv ? "INDIVIDU (1 Peserta)" : `TIM (${minM}–${maxM} Orang)`;
+      }
+      if (quotaInfo) {
+        quotaInfo.textContent = isIndiv ? "Kuota: 1 / 1 peserta" : `Kuota: ${n} / ${maxM} anggota terisi`;
+      }
+
+      // Atur visibilitas fitur anggota berdasarkan aturan kompetisi dan peran user
+      if (isIndiv) {
+        if (individualNotice) individualNotice.hidden = false;
+        if (addMemberSection) addMemberSection.hidden = true;
+        if (joinTeamSection) joinTeamSection.hidden = true;
+        if (leaveTeamSection) leaveTeamSection.hidden = true;
+      } else {
+        if (individualNotice) individualNotice.hidden = true;
+
+        if (team.role === "leader") {
+          if (joinTeamSection) joinTeamSection.hidden = true;
+          if (addMemberSection) {
+            addMemberSection.hidden = false;
+            const emailInput = addMemberSection.querySelector("input[name='memberEmail']");
+            const submitBtn = addMemberSection.querySelector("button[type='submit']");
+            const isFull = n >= maxM;
+            if (emailInput) emailInput.disabled = isFull;
+            if (submitBtn) submitBtn.disabled = isFull;
+            const hint = addMemberSection.querySelector(".proof-hint");
+            if (hint) {
+              hint.textContent = isFull
+                ? `Kuota tim sudah penuh (maksimal ${maxM} anggota). Keluarkan anggota terlebih dahulu bila ingin mengganti.`
+                : `Undang anggota menggunakan email akun Perkutut Cup mereka (sisa kuota: ${maxM - n} orang):`;
+            }
+          }
+          if (leaveTeamSection) {
+            leaveTeamSection.hidden = false;
+            if (leaveTeamBtn) {
+              leaveTeamBtn.textContent = n === 1 ? "BUBARKAN TIM" : "KELUAR DARI TIM";
+            }
+          }
+        } else {
+          // Member biasa (bukan leader)
+          if (addMemberSection) addMemberSection.hidden = true;
+          if (joinTeamSection) joinTeamSection.hidden = true;
+          if (leaveTeamSection) {
+            leaveTeamSection.hidden = false;
+            if (leaveTeamBtn) leaveTeamBtn.textContent = "KELUAR DARI TIM";
+          }
+        }
+      }
+
+      // Render daftar anggota
+      if (membersEl && tpl) {
+        membersEl.innerHTML = "";
+        team.members.forEach((m) => {
+          const node = tpl.content.cloneNode(true);
+          const strong = node.querySelector("strong");
+          const small = node.querySelector("small");
+          const isCaller = currentUser && (m.user_id === currentUser.id || m.email === currentUser.email);
+
+          strong.textContent = m.full_name;
+          if (isCaller) {
+            const badge = document.createElement("span");
+            badge.className = "team-badge";
+            badge.textContent = "YOU";
+            strong.appendChild(badge);
+          }
+          small.textContent = `${m.role === "leader" ? "Team Leader" : "Member"}${m.institution ? " • " + m.institution : ""}`;
+
+          // Tombol remove member khusus leader untuk anggota lain
+          const removeBtn = node.querySelector("[data-remove-member]");
+          if (removeBtn) {
+            if (team.role === "leader" && m.role !== "leader" && !isCaller) {
+              removeBtn.hidden = false;
+              removeBtn.addEventListener("click", async () => {
+                if (!confirm(`Keluarkan ${m.full_name} dari tim?`)) return;
+                try {
+                  const res = await fetch(`/api/team/members/${m.user_id}`, {
+                    method: "DELETE",
+                    credentials: "same-origin",
+                  });
+                  const resData = await res.json().catch(() => ({}));
+                  if (res.ok) {
+                    await reloadTeam();
+                  } else {
+                    alert(resData.detail || "Gagal mengeluarkan anggota tim.");
+                  }
+                } catch (err) {
+                  alert("Tidak dapat menghubungi server.");
+                }
+              });
+            } else {
+              removeBtn.hidden = true;
+            }
+          }
+
+          membersEl.appendChild(node);
+        });
+      }
+    };
+
+    const reloadTeam = async () => {
+      try {
+        const teamRes = await fetch("/api/team", { credentials: "same-origin" });
+        if (teamRes.ok) {
+          const teamData = await teamRes.json();
+          renderTeam(teamData.team, currentProfileUser);
+        }
+      } catch (e) {}
+    };
+
     (async () => {
       try {
         const [meRes, teamRes] = await Promise.all([
@@ -795,60 +1107,161 @@
           return;
         }
         const me = await meRes.json();
-        fillForm(me.user || {});
+        currentProfileUser = me.user || {};
+        fillForm(currentProfileUser);
+
+        // Periksa RBAC admin untuk menu dashboard
+        if (currentProfileUser.role === "admin") {
+          document.querySelectorAll("[data-admin-nav]").forEach((el) => {
+            el.hidden = false;
+          });
+          const asideTeamSmall = document.querySelector(".dash-team small");
+          if (asideTeamSmall) asideTeamSmall.textContent = "ADMINISTRATOR";
+        }
 
         // Metric registration: email terisi + terverifikasi sisi form = "Verified"
         setPlaceholder(document.querySelector("[data-registration-status]"),
-          me.user && me.user.email ? "Verified" : "Belum lengkap");
+          currentProfileUser.email ? "Verified" : "Belum lengkap");
 
         const teamData = await teamRes.json();
-        const team = teamData.team;
-        const countEl = document.querySelector("[data-team-member-count]");
-        const trackEl = document.querySelector("[data-team-track]");
-        const codeEl = document.querySelector("[data-team-code]");
-        const leaderEl = document.querySelector("[data-team-leader-name]");
-        const membersEl = document.querySelector("[data-team-members]");
-        const tpl = document.querySelector("[data-team-member-template]");
-
-        if (!team) {
-          setPlaceholder(countEl, "0 / 1");
-          setPlaceholder(trackEl, "—");
-          setPlaceholder(codeEl, "# belum ada tim");
-          if (membersEl) {
-            membersEl.innerHTML =
-              '<p class="proof-hint" style="padding:.4rem 0">Belum tergabung dalam tim. Data tim akan muncul di sini setelah kamu bergabung.</p>';
-          }
-        } else {
-          const n = team.members.length;
-          setPlaceholder(countEl, `${n} / ${Math.max(n, 1)}`);
-          setPlaceholder(trackEl, team.track || "—");
-          setPlaceholder(codeEl, `# ${team.code}`);
-          if (leaderEl) {
-            const leader = team.members.find((m) => m.role === "leader") || team.members[0];
-            if (leader) leaderEl.textContent = leader.full_name;
-          }
-          if (membersEl && tpl) {
-            membersEl.innerHTML = "";
-            team.members.forEach((m) => {
-              const node = tpl.content.cloneNode(true);
-              const strong = node.querySelector("strong");
-              const small = node.querySelector("small");
-              strong.textContent = m.full_name;
-              if (m.role === "leader") {
-                const badge = document.createElement("span");
-                badge.className = "team-badge";
-                badge.textContent = "YOU";
-                strong.appendChild(badge);
-              }
-              small.textContent = `${m.role === "leader" ? "Team Leader" : "Member"}${m.institution ? " • " + m.institution : ""}`;
-              membersEl.appendChild(node);
-            });
-          }
-        }
+        renderTeam(teamData.team, currentProfileUser);
       } catch (error) {
         setPlaceholder(status, "Gagal memuat data profil.");
       }
     })();
+
+    // Event listener: Tambah Anggota Tim
+    const addMemberForm = document.querySelector("[data-add-member-form]");
+    const addMemberStatus = document.querySelector("[data-add-member-status]");
+    if (addMemberForm) {
+      addMemberForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const input = addMemberForm.querySelector("input[name='memberEmail']");
+        const emailVal = input?.value?.trim();
+        if (!emailVal) return;
+
+        if (addMemberStatus) {
+          addMemberStatus.textContent = "Menambahkan anggota…";
+          addMemberStatus.style.color = "var(--dash-text-muted)";
+        }
+
+        try {
+          const res = await fetch("/api/team/members", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "same-origin",
+            body: JSON.stringify({ email: emailVal }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (res.ok) {
+            if (addMemberStatus) {
+              addMemberStatus.textContent = data.message || "Anggota berhasil ditambahkan.";
+              addMemberStatus.style.color = "#2ecc71";
+            }
+            if (input) input.value = "";
+            await reloadTeam();
+          } else {
+            if (addMemberStatus) {
+              addMemberStatus.textContent = data.detail || "Gagal menambahkan anggota.";
+              addMemberStatus.style.color = "#e74c3c";
+            }
+          }
+        } catch (err) {
+          if (addMemberStatus) {
+            addMemberStatus.textContent = "Tidak dapat menghubungi server.";
+            addMemberStatus.style.color = "#e74c3c";
+          }
+        }
+      });
+    }
+
+    // Event listener: Gabung Tim via Kode
+    const joinTeamForm = document.querySelector("[data-join-team-form]");
+    const joinTeamStatus = document.querySelector("[data-join-team-status]");
+    if (joinTeamForm) {
+      joinTeamForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const input = joinTeamForm.querySelector("input[name='teamCode']");
+        const codeVal = input?.value?.trim().toUpperCase();
+        if (!codeVal) return;
+
+        if (joinTeamStatus) {
+          joinTeamStatus.textContent = "Memverifikasi dan bergabung ke tim…";
+          joinTeamStatus.style.color = "var(--dash-text-muted)";
+        }
+
+        try {
+          const res = await fetch("/api/team/join", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "same-origin",
+            body: JSON.stringify({ code: codeVal }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (res.ok) {
+            if (joinTeamStatus) {
+              joinTeamStatus.textContent = data.message || "Berhasil bergabung ke tim.";
+              joinTeamStatus.style.color = "#2ecc71";
+            }
+            if (input) input.value = "";
+            await reloadTeam();
+          } else {
+            if (joinTeamStatus) {
+              joinTeamStatus.textContent = data.detail || "Gagal bergabung ke tim.";
+              joinTeamStatus.style.color = "#e74c3c";
+            }
+          }
+        } catch (err) {
+          if (joinTeamStatus) {
+            joinTeamStatus.textContent = "Tidak dapat menghubungi server.";
+            joinTeamStatus.style.color = "#e74c3c";
+          }
+        }
+      });
+    }
+
+    // Event listener: Keluar / Bubarkan Tim
+    const leaveTeamBtn = document.querySelector("[data-leave-team-btn]");
+    const leaveTeamStatus = document.querySelector("[data-leave-team-status]");
+    if (leaveTeamBtn) {
+      leaveTeamBtn.addEventListener("click", async () => {
+        const isDisband = leaveTeamBtn.textContent.includes("BUBARKAN");
+        const confirmMsg = isDisband
+          ? "Apakah Anda yakin ingin membubarkan tim ini?"
+          : "Apakah Anda yakin ingin keluar dari tim ini?";
+        if (!confirm(confirmMsg)) return;
+
+        if (leaveTeamStatus) {
+          leaveTeamStatus.textContent = "Memproses…";
+          leaveTeamStatus.style.color = "var(--dash-text-muted)";
+        }
+
+        try {
+          const res = await fetch("/api/team/leave", {
+            method: "POST",
+            credentials: "same-origin",
+          });
+          const data = await res.json().catch(() => ({}));
+          if (res.ok) {
+            if (leaveTeamStatus) {
+              leaveTeamStatus.textContent = data.message || "Berhasil memproses permintaan tim.";
+              leaveTeamStatus.style.color = "#2ecc71";
+            }
+            await reloadTeam();
+          } else {
+            if (leaveTeamStatus) {
+              leaveTeamStatus.textContent = data.detail || "Gagal memproses permintaan tim.";
+              leaveTeamStatus.style.color = "#e74c3c";
+            }
+          }
+        } catch (err) {
+          if (leaveTeamStatus) {
+            leaveTeamStatus.textContent = "Tidak dapat menghubungi server.";
+            leaveTeamStatus.style.color = "#e74c3c";
+          }
+        }
+      });
+    }
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();

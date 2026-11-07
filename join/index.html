@@ -11,6 +11,68 @@
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&family=Pixelify+Sans:wght@400;600;700&family=Poppins:wght@400;500;700&family=Space+Mono&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../styles.css" />
   <link rel="stylesheet" href="../auth-motion.css" />
+  <style>
+    .auth-control select {
+      width: 100%;
+      height: 40px;
+      padding: 0 36px 0 14px;
+      border: 1px solid #e5e7eb;
+      border-radius: 9px;
+      font-family: inherit;
+      font-size: 13.5px;
+      color: #111827;
+      background-color: #ffffff;
+      cursor: pointer;
+      outline: none;
+      transition: border-color .15s ease, box-shadow .15s ease;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 14px center;
+    }
+    .auth-control select:focus {
+      border-color: #8b58a9;
+      box-shadow: 0 0 0 3px rgba(134, 68, 162, 0.14);
+    }
+    .auth-field.has-error .auth-control select {
+      border-color: #e5484d;
+      background-color: #fff8f8;
+    }
+    .competition-selected-card {
+      margin-top: 8px;
+      padding: 10px 12px;
+      background: rgba(134, 68, 162, 0.08);
+      border: 1px solid rgba(134, 68, 162, 0.22);
+      border-radius: 8px;
+      font-size: 12.5px;
+      line-height: 1.4;
+    }
+    .competition-card-tag {
+      font-weight: 700;
+      color: #632d7b;
+      margin-bottom: 2px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .competition-card-badge {
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 4px;
+      background: #632d7b;
+      color: #fff;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .competition-card-meta {
+      color: #4b5563;
+      font-size: 11.5px;
+      margin: 0;
+    }
+  </style>
 </head>
 <body class="auth-body">
   <main class="auth-screen auth-screen--join">
@@ -37,6 +99,20 @@
       <p class="auth-subtitle">Buat akun untuk bergabung dengan Perkutut Cup 2026.</p>
 
       <form class="auth-form" data-auth-form="join" novalidate>
+        <div class="auth-field" data-competition-field>
+          <label for="join-competition"><span>Pilihan Kompetisi</span></label>
+          <span class="auth-control">
+            <select id="join-competition" name="competition" required aria-describedby="join-competition-error">
+              <option value="">Memuat daftar kompetisi aktif…</option>
+            </select>
+          </span>
+          <span class="auth-field-error" id="join-competition-error" data-field-error="competition" role="alert" aria-live="polite"></span>
+          <div class="competition-selected-card" data-competition-card hidden>
+            <div class="competition-card-tag" data-competition-tag></div>
+            <p class="competition-card-meta" data-competition-meta></p>
+          </div>
+        </div>
+
         <label class="auth-field" for="join-fullname">
           <span>Nama Lengkap</span>
           <span class="auth-control">

@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0b0c10" id="meta-theme-color" />
+  <title>Admin · Kelola Pengguna · Perkutut Cup 2026</title>
+  <link rel="icon" type="image/svg+xml" href="../../assets/svg/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&family=Pixelify+Sans:wght@400;600;700&family=Poppins:wght@400;500;700&family=Space+Mono&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../../styles.css" />
+  <link rel="stylesheet" href="../../dashboard.css" />
+  <script>
+    (function () {
+      var saved = localStorage.getItem('dash-theme');
+      var prefer = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      var theme = saved || prefer;
+      if (theme === 'light') document.documentElement.setAttribute('data-theme', 'light');
+    })();
+  </script>
+  <style>
+    .admin-table-wrap{overflow-x:auto;margin-top:1.2rem;border:1px solid var(--dash-border-mid);border-radius:12px;background:var(--dash-card)}
+    .admin-table{width:100%;border-collapse:collapse;font-size:.8rem;text-align:left}
+    .admin-table th,.admin-table td{padding:.85rem 1rem;border-bottom:1px solid var(--dash-border-subtle);vertical-align:top}
+    .admin-table th{background:rgba(255,232,217,.04);color:var(--dash-text-muted);font-family:var(--font-mono);font-size:.65rem;letter-spacing:.08em;text-transform:uppercase;font-weight:700}
+    .admin-table tr:last-child td{border-bottom:none}
+    .role-badge{display:inline-flex;padding:.2rem .55rem;border-radius:6px;font-size:.65rem;font-weight:700;font-family:var(--font-mono);text-transform:uppercase;border:1px solid var(--dash-border-mid)}
+    .role-admin{color:#bf8fee;background:rgba(134,68,162,.16);border-color:rgba(134,68,162,.3)}
+    .role-user{color:var(--dash-text-body);background:rgba(255,232,217,.06)}
+    .role-jury,.role-committee{color:#f1c40f;background:rgba(241,196,15,.14);border-color:rgba(241,196,15,.3)}
+    .btn-admin{display:inline-flex;align-items:center;gap:5px;padding:.35rem .75rem;border:1px solid var(--dash-border-mid);border-radius:8px;background:rgba(255,232,217,.06);color:var(--dash-text-body);font-family:var(--font-mono);font-size:.7rem;cursor:pointer}
+    .btn-admin:hover{background:var(--dash-nav-hover);color:var(--dash-text-primary)}
+    .admin-modal{position:fixed;inset:0;background:rgba(11,12,16,.75);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:1.5rem;z-index:1000;opacity:0;pointer-events:none;transition:opacity 200ms ease}
+    .admin-modal.is-open{opacity:1;pointer-events:auto}
+    .admin-modal-card{width:100%;max-width:640px;max-height:90vh;overflow-y:auto;background:var(--dash-surface);border:1px solid var(--dash-border-mid);border-radius:18px;padding:1.8rem;box-shadow:0 20px 45px rgba(0,0,0,.5)}
+    .admin-modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem;padding-bottom:.8rem;border-bottom:1px solid var(--dash-border-subtle)}
+    .admin-modal-head h3{margin:0;font-size:1.1rem;color:var(--dash-text-primary)}
+    .btn-close-modal{background:none;border:none;color:var(--dash-text-muted);font-size:1.4rem;cursor:pointer;line-height:1;padding:0 .3rem}
+    .form-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+    @media (max-width:640px){.form-grid-2{grid-template-columns:1fr}}
+    .field select.input{appearance:none;-webkit-appearance:none;padding-right:36px;cursor:pointer}
+    .unauthorized-card{padding:2.5rem;text-align:center;border:1px solid rgba(231,76,60,.3);border-radius:16px;background:rgba(231,76,60,.08);margin-top:2rem}
+    .unauthorized-card h2{color:#e74c3c;margin-bottom:.8rem}
+    .toolbar{display:flex;gap:.75rem;flex-wrap:wrap;align-items:end;margin-top:1rem}
+    .toolbar .field{min-width:220px;flex:1}
+  </style>
+</head>
+<body class="dash-body">
+  <div class="dash">
+    <aside class="dash-aside" aria-label="Navigasi akun">
+      <div>
+        <a class="dash-brand" href="../../#home" aria-label="Perkutut Cup 2026 home">
+          <span class="dash-brand-mark"><img src="../../assets/svg/dashboard/brand-mark.svg" width="22" height="22" alt="" /></span>
+          <strong>User Portal</strong>
+        </a>
+        <div class="dash-team">
+          <span class="dash-avatar">A</span>
+          <span><small>ADMINISTRATOR</small><strong data-user-name>Admin Portal</strong></span>
+        </div>
+        <nav class="dash-nav" aria-label="Menu dashboard">
+          <a href="../profile/"><img src="../../assets/svg/dashboard/nav-profile.svg" width="18" height="18" alt="" /><span>PROFILE &amp; TEAM</span></a>
+          <a href="../submission/"><img src="../../assets/svg/dashboard/nav-submission.svg" width="18" height="18" alt="" /><span>PROJECT SUBMISSION</span></a>
+          <a href="../competitions/" data-admin-nav><img src="../../assets/svg/dashboard/icon-trophy.svg" width="18" height="18" alt="" /><span>KELOLA KOMPETISI</span></a>
+          <a class="is-active" aria-current="page" href="../users/" data-admin-nav><img src="../../assets/svg/dashboard/icon-members.svg" width="18" height="18" alt="" /><span>KELOLA PENGGUNA</span></a>
+        </nav>
+      </div>
+      <div class="dash-aside-foot">
+        <a href="../../#home"><img src="../../assets/svg/dashboard/nav-home.svg" width="18" height="18" alt="" /><span>HOME PAGE</span></a>
+        <a href="../../sign-in/" data-logout><img src="../../assets/svg/dashboard/nav-logout.svg" width="18" height="18" alt="" /><span>LOGOUT</span></a>
+        <button class="dash-theme-toggle" id="dash-theme-toggle" type="button" aria-label="Toggle light/dark theme" aria-pressed="false"><span class="toggle-icon" aria-hidden="true">🌙</span><span class="toggle-label">DARK MODE</span></button>
+      </div>
+    </aside>
+
+    <main class="dash-main">
+      <div id="admin-view" hidden>
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:1rem; margin-bottom:1rem;">
+          <div>
+            <h1 class="dash-page-title" style="margin-bottom:0.25rem;">Admin · Kelola Pengguna</h1>
+            <p class="dash-page-sub">Admin seed dapat menambah pengguna, mengubah role, mereset password, dan melihat info pengguna. Password/hash tidak ditampilkan.</p>
+          </div>
+          <button class="btn-save" id="btn-add-user" type="button" style="padding:0.6rem 1.1rem; font-size:0.75rem;">+ TAMBAH PENGGUNA</button>
+        </div>
+
+        <section class="card">
+          <div class="card-head"><h2>DAFTAR PENGGUNA</h2></div>
+          <form class="toolbar" id="search-form">
+            <label class="field"><span>CARI NAMA / EMAIL</span><input class="input" type="search" id="search-q" placeholder="contoh: ari atau ari@example.com" /></label>
+            <button class="btn-upload" type="submit">CARI</button>
+            <button class="btn-upload" type="button" id="search-reset">RESET</button>
+          </form>
+          <div class="admin-table-wrap">
+            <table class="admin-table">
+              <thead><tr><th>ID</th><th>Nama &amp; Email</th><th>Role</th><th>Institusi</th><th>Dibuat</th><th>Aksi</th></tr></thead>
+              <tbody id="users-tbody"><tr><td colspan="6" style="text-align:center; padding:2rem; color:var(--dash-text-muted);">Memuat data pengguna…</td></tr></tbody>
+            </table>
+          </div>
+          <p class="dash-status" id="list-status" role="status" aria-live="polite"></p>
+        </section>
+      </div>
+
+      <div id="unauthorized-view" class="unauthorized-card" hidden>
+        <h2>Akses Ditolak (403 Forbidden)</h2>
+        <p>Halaman ini dikhususkan untuk Administrator Perkutut Cup 2026.</p>
+        <a class="btn-save" href="../profile/" style="display:inline-block; text-decoration:none; padding:0.6rem 1.2rem;">Kembali ke Dashboard Profil</a>
+      </div>
+    </main>
+  </div>
+
+  <div class="admin-modal" id="user-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="user-modal-title">
+    <div class="admin-modal-card">
+      <div class="admin-modal-head"><h3 id="user-modal-title">Pengguna</h3><button class="btn-close-modal" id="user-modal-close" type="button" aria-label="Tutup">&times;</button></div>
+      <form id="user-form" class="dash-form" novalidate>
+        <div class="form-grid-2">
+          <label class="field" id="field-name-wrap"><span>NAMA LENGKAP</span><input class="input" type="text" id="field-name" maxlength="100" /></label>
+          <label class="field" id="field-email-wrap"><span>EMAIL</span><input class="input" type="email" id="field-email" /></label>
+        </div>
+        <div class="form-grid-2">
+          <label class="field"><span>ROLE</span>
+            <select class="input" id="field-role">
+              <option value="user">user</option>
+              <option value="admin">admin</option>
+              <option value="jury">jury</option>
+              <option value="committee">committee</option>
+            </select>
+          </label>
+          <label class="field"><span>PASSWORD</span><input class="input" type="password" id="field-password" autocomplete="new-password" placeholder="Kosongkan jika tidak diubah" /></label>
+        </div>
+        <p class="proof-hint" id="password-hint">Password mengikuti kebijakan aplikasi. Password/hash tidak pernah ditampilkan kembali.</p>
+        <div id="user-info" class="proof-hint" hidden></div>
+        <div style="display:flex; justify-content:flex-end; gap:0.8rem; margin-top:1.5rem;">
+          <button class="btn-upload" type="button" id="user-modal-cancel">BATAL</button>
+          <button class="btn-save" type="submit" id="user-modal-submit">SIMPAN</button>
+        </div>
+        <p class="dash-status" id="user-modal-status" role="status" aria-live="polite" style="margin-top:0.8rem; text-align:right;"></p>
+      </form>
+    </div>
+  </div>
+
+  <script src="../../script.js" defer></script>
+  <script>
+    (function () {
+      var html = document.documentElement, btn = document.getElementById('dash-theme-toggle'), label = btn && btn.querySelector('.toggle-label'), icon = btn && btn.querySelector('.toggle-icon'), metaTheme = document.getElementById('meta-theme-color');
+      function getTheme(){ return html.getAttribute('data-theme') === 'light' ? 'light' : 'dark'; }
+      function applyTheme(theme){ if (theme === 'light') html.setAttribute('data-theme','light'); else html.removeAttribute('data-theme'); if (btn) btn.setAttribute('aria-pressed', String(theme==='light')); if (label) label.textContent = theme==='light' ? 'LIGHT MODE' : 'DARK MODE'; if (icon) icon.textContent = theme==='light' ? '☀️' : '🌙'; if (metaTheme) metaTheme.setAttribute('content', theme==='light' ? '#f4f1ff' : '#0b0c10'); localStorage.setItem('dash-theme', theme); }
+      applyTheme(getTheme()); if (btn) btn.addEventListener('click', function(){ applyTheme(getTheme()==='dark'?'light':'dark'); });
+    })();
+
+    document.addEventListener('DOMContentLoaded', async function () {
+      var adminView = document.getElementById('admin-view'), unauthView = document.getElementById('unauthorized-view'), tbody = document.getElementById('users-tbody'), listStatus = document.getElementById('list-status'), userNameEl = document.querySelector('[data-user-name]');
+      var modal = document.getElementById('user-modal'), modalTitle = document.getElementById('user-modal-title'), form = document.getElementById('user-form'), modalStatus = document.getElementById('user-modal-status'), userInfo = document.getElementById('user-info');
+      var fName = document.getElementById('field-name'), fEmail = document.getElementById('field-email'), fRole = document.getElementById('field-role'), fPass = document.getElementById('field-password');
+      var mode = 'create', editingId = null, users = [];
+      function esc(v){ return String(v == null ? '' : v).replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
+      function closeModal(){ modal.classList.remove('is-open'); modal.setAttribute('aria-hidden','true'); }
+      function openModal(nextMode, user){ mode = nextMode; editingId = user ? user.id : null; modalStatus.textContent=''; userInfo.hidden = true; fPass.value=''; form.reset(); fRole.value='user';
+        if (mode === 'create') { modalTitle.textContent='Tambah Pengguna'; fName.disabled=false; fEmail.disabled=false; fName.required=true; fEmail.required=true; fPass.required=true; document.getElementById('password-hint').textContent='Password wajib diisi untuk pengguna baru dan mengikuti kebijakan aplikasi.'; }
+        else { modalTitle.textContent = 'Ubah Pengguna #' + user.id; fName.value=user.full_name||''; fEmail.value=user.email||''; fRole.value=user.role||'user'; fName.disabled=true; fEmail.disabled=true; fName.required=false; fEmail.required=false; fPass.required=false; document.getElementById('password-hint').textContent='Kosongkan password jika tidak ingin mereset. Password/hash tidak pernah ditampilkan.'; userInfo.hidden=false; userInfo.textContent='ID: '+user.id+' · Email: '+(user.email||'-')+' · Dibuat: '+(user.created_at||'-')+(user.institution?' · Institusi: '+user.institution:''); }
+        modal.classList.add('is-open'); modal.setAttribute('aria-hidden','false'); }
+      document.getElementById('user-modal-close').addEventListener('click', closeModal); document.getElementById('user-modal-cancel').addEventListener('click', closeModal); document.getElementById('btn-add-user').addEventListener('click', function(){ openModal('create'); });
+
+      try {
+        var sessionRes = await fetch('/api/auth/session', { credentials:'same-origin' });
+        var sessionData = await sessionRes.json();
+        if (!sessionData.authenticated || !sessionData.user || sessionData.user.role !== 'admin') { unauthView.hidden=false; return; }
+        if (userNameEl) userNameEl.textContent = sessionData.user.full_name || 'Admin Portal';
+        adminView.hidden = false;
+      } catch (e) { unauthView.hidden=false; return; }
+
+      async function loadUsers(){
+        listStatus.textContent = 'Memuat…';
+        try {
+          var q = document.getElementById('search-q').value.trim();
+          var url = '/api/admin/users?limit=100&offset=0' + (q ? '&q=' + encodeURIComponent(q) : '');
+          var res = await fetch(url, { credentials:'same-origin' });
+          var data = await res.json().catch(function(){ return {}; });
+          if (!res.ok) throw new Error(data.detail || ('HTTP ' + res.status));
+          users = data.users || [];
+          listStatus.textContent = 'Total: ' + (data.total == null ? users.length : data.total) + ' pengguna.';
+          if (!users.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--dash-text-muted);">Tidak ada pengguna.</td></tr>'; return; }
+          tbody.innerHTML = users.map(function(u){
+            var role = u.role || 'user';
+            return '<tr><td><code style="font-family:var(--font-mono);font-size:.72rem;">'+u.id+'</code></td><td><strong style="color:var(--dash-text-primary);">'+esc(u.full_name||'-')+'</strong><br/><span style="color:var(--dash-text-muted);font-size:.72rem;">'+esc(u.email||'-')+'</span></td><td><span class="role-badge role-'+esc(role)+'">'+esc(role)+'</span></td><td>'+esc(u.institution||'-')+'</td><td style="font-size:.72rem;color:var(--dash-text-muted);">'+esc(u.created_at||'-')+'</td><td><button class="btn-admin" type="button" data-edit-user="'+u.id+'">Ubah / Reset</button></td></tr>';
+          }).join('');
+          tbody.querySelectorAll('[data-edit-user]').forEach(function(btn){ btn.addEventListener('click', function(){ var id = Number(btn.getAttribute('data-edit-user')); var user = users.find(function(u){ return u.id===id; }); if (user) openModal('edit', user); }); });
+        } catch (err) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:#e74c3c;">Gagal memuat pengguna: '+esc(err.message)+'</td></tr>'; listStatus.textContent=''; }
+      }
+
+      document.getElementById('search-form').addEventListener('submit', function(e){ e.preventDefault(); loadUsers(); });
+      document.getElementById('search-reset').addEventListener('click', function(){ document.getElementById('search-q').value=''; loadUsers(); });
+
+      form.addEventListener('submit', async function(e){
+        e.preventDefault(); modalStatus.style.color='var(--dash-text-muted)'; modalStatus.textContent='Menyimpan…';
+        try {
+          var res, data;
+          if (mode === 'create') {
+            if (!fName.value.trim() || !fEmail.value.trim() || !fPass.value) { modalStatus.style.color='#e74c3c'; modalStatus.textContent='Nama, email, dan password wajib diisi.'; return; }
+            res = await fetch('/api/admin/users', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ full_name:fName.value.trim(), email:fEmail.value.trim(), password:fPass.value, role:fRole.value }) });
+          } else {
+            var body = { role:fRole.value };
+            if (fPass.value) body.password = fPass.value;
+            res = await fetch('/api/admin/users/' + editingId, { method:'PATCH', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+          }
+          data = await res.json().catch(function(){ return {}; });
+          if (!res.ok) { modalStatus.style.color='#e74c3c'; modalStatus.textContent = data.detail || ('Gagal ('+res.status+').'); return; }
+          modalStatus.style.color='#2ecc71'; modalStatus.textContent = data.message || (mode==='create' ? 'Pengguna berhasil dibuat.' : (data.password_reset ? 'Role diperbarui dan password direset.' : 'Role berhasil diperbarui.'));
+          setTimeout(function(){ closeModal(); loadUsers(); }, 500);
+        } catch (err) { modalStatus.style.color='#e74c3c'; modalStatus.textContent='Tidak dapat menghubungi server.'; }
+      });
+
+      loadUsers();
+    });
+  </script>
+</body>
+</html>

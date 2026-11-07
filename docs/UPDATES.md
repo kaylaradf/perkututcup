@@ -21,6 +21,8 @@ di sini — lihat `git log` untuk riwayat lengkap.
 | v2.2 | 2026-11-05 | Hardening input: whitelist kolom UPDATE & rate limiting anti brute-force | [`docs/RATE-LIMITING.md`](RATE-LIMITING.md) | `7440b2c`, `2770d0e` |
 | v2.3 | 2026-11-07 | Account lockout (5x salah sandi) & popup error custom | [`docs/ACCOUNT-LOCKOUT.md`](ACCOUNT-LOCKOUT.md) | `7713c53` |
 | v2.4 | 2026-11-07 | UX auth (validasi inline + dialog dirapikan), CAPTCHA reset tiap gagal, `/health`, workflow staging | [`docs/ACCOUNT-LOCKOUT.md`](ACCOUNT-LOCKOUT.md) · [`docs/STAGING-DEPLOY.md`](STAGING-DEPLOY.md) | `336e3ec`, working tree |
+| v2.5 | 2026-11-08 | Master kompetisi (INDIVIDUAL/TEAM), role user, endpoint pendaftaran terikat slug & anti-duplikasi, integrasi join | [`docs/COMPETITIONS-REGISTRATION.md`](COMPETITIONS-REGISTRATION.md) | working tree |
+| v2.6 | 2026-11-08 | Admin kompetisi, manajemen kuota anggota, dan alur tim end-to-end (join code, add/remove member, leave) | [`docs/COMPETITIONS-REGISTRATION.md`](COMPETITIONS-REGISTRATION.md) | working tree |
 
 ## Detail
 
@@ -78,3 +80,36 @@ Commit: `336e3ec` (+ perubahan kerja: refresh CAPTCHA pada semua kegagalan).
 - **Dialog modal:** kegagalan kredensial (`401`), lockout (`423`), dan rate limit (`429`) tetap memakai dialog, dengan tampilan dirapikan.
 - **Health check:** `GET /health` → `{"status":"ok"}`.
 - **Staging deploy:** workflow [`.github/workflows/staging-deploy.yml`](../.github/workflows/staging-deploy.yml) (Tailscale+SSH, release dir + rollback) dan panduan [`docs/STAGING-DEPLOY.md`](STAGING-DEPLOY.md). Deploy langsung SCP/SSH dapat dipakai bila secrets GitHub Actions belum tersedia.
+
+### v2.5 — Master Kompetisi & Integrasi Pendaftaran (2026-11-08)
+
+Fondasi data master kompetisi, peran akun, endpoint pendaftaran, dan integrasi pendaftaran dari beranda ke formulir pendaftaran. Detail lengkap di [`docs/COMPETITIONS-REGISTRATION.md`](COMPETITIONS-REGISTRATION.md).
+
+- **Migrasi DB (`0002_competitions_and_roles.sql`):** tabel master `competitions` (dukungan `INDIVIDUAL`/`TEAM`, min/max anggota tim, status/periode registrasi), penambahan kolom `users.role` (default `'user'`), relasi `teams.competition_id` dan `team_members.competition_id`, serta index unik anti duplikasi pendaftaran per kompetisi. Data tim lama otomatis di-backfill.
+- **Endpoint Kompetisi:** `GET /api/competitions` dan `GET /api/competitions/{slug}` untuk daftar dan detail kompetisi aktif.
+- **Endpoint Registrasi Terikat Slug & Anti Duplikasi:**
+  - `POST /api/competitions/{slug}/register`: mendaftarkan user/tim ke kompetisi tertentu dengan validasi status/waktu dan pencegahan duplikasi (409 Conflict).
+  - `POST /api/auth/register`: diperluas dengan field `competition` (slug) untuk mengikat akun baru ke kompetisi yang dipilih secara atomik.
+- **Integrasi Frontend:**
+  - `index.html`: kartu kompetisi Kriptografi diarahkan ke `join/?competition=kriptografi`, navigasi global tetap `join/`.
+  - `join/index.html`: penambahan field seleksi kompetisi dan kartu preview kompetisi terpilih.
+  - `script.js`: pemuatan kompetisi aktif, seleksi otomatis dari URL, validasi formulir dan pengiriman slug kompetisi ke API backend.
+- **Keamanan & Kompatibilitas:** Mempertahankan seluruh mekanisme session, CAPTCHA, dan rate limit yang ada. Tidak memberikan privilege admin otomatis ke publik. Skema basis data sepenuhnya backward-compatible.
+
+### v2.6 — Admin Kompetisi & Manajemen Tim End-to-End (2026-11-08)
+
+Penyelesaian fitur administrasi kompetisi berbasis RBAC server-side, manajemen anggota tim, dan penegakan kuota partisipasi secara menyeluruh. Detail di [`docs/COMPETITIONS-REGISTRATION.md`](COMPETITIONS-REGISTRATION.md).
+
+- **Admin Portal Kompetisi (`dashboard/competitions/index.html`):** antarmuka visual khusus admin untuk mengelola cabang kompetisi, mengubah status (`OPEN`/`UPCOMING`/`CLOSED`), menetapkan jenis partisipasi (`INDIVIDUAL` vs `TEAM`), mengatur kuota anggota (`min_team_members` dan `max_team_members`), serta menentukan rentang tanggal registrasi.
+- **RBAC Server-side & Endpoint Admin:**
+  - `GET /api/admin/competitions`: daftar kompetisi dan statistik real-time (jumlah tim dan peserta terdaftar).
+  - `POST /api/admin/competitions`: penambahan cabang kompetisi baru dengan validasi integritas aturan.
+  - `GET /api/admin/competitions/{id_or_slug}` & `PATCH /api/admin/competitions/{id_or_slug}`: konfigurasi dinamis kompetisi tanpa perlu migrasi ulang basis data.
+- **Alur Manajemen Tim Peserta (`/api/team/*`):**
+  - `POST /api/team/join`: peserta dapat bergabung ke tim menggunakan kode tim (`PC26-XXXX`). Server memvalidasi kuota maksimal, status kompetisi terbuka, serta membatasi kompetisi bertipe individu.
+  - `POST /api/team/members`: ketua tim dapat mengundang/menambahkan anggota berdasarkan email terdaftar dengan validasi anti-duplikasi lintas tim pada cabang yang sama.
+  - `DELETE /api/team/members/{user_id}`: ketua tim dapat mengeluarkan anggota tim selama masa registrasi terbuka.
+  - `POST /api/team/leave`: anggota dapat meninggalkan tim, atau ketua dapat membubarkan tim solo secara aman.
+  - `PATCH /api/team`: ketua tim dapat memperbarui nama tim.
+- **Integrasi UI Dashboard:** Kartu *MY TEAM* pada `dashboard/profile/index.html` kini interaktif: tombol salin kode tim, indikator kuota, badge jenis kompetisi, formulir tambah anggota via email, formulir gabung tim dengan kode, dan aksi hapus/keluar tim. Menu *MANAGE COMPETITIONS* otomatis terbuka untuk pengguna dengan role `'admin'`.
+- **Kompatibilitas:** Tidak mengubah kontrak awal; seluruh endpoint dan skema v1/v2 tetap aman dan berjalan normal.
