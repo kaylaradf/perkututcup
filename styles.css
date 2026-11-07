@@ -3200,3 +3200,116 @@ body::-webkit-scrollbar {
     margin-bottom: 12px;
   }
 }
+
+/* ---------------------------------------------- popup error autentikasi */
+.auth-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+.auth-modal[hidden] {
+  display: none;
+}
+
+.auth-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(11, 12, 16, 0.72);
+  backdrop-filter: blur(3px);
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+
+.auth-modal.is-open .auth-modal-backdrop {
+  opacity: 1;
+}
+
+.auth-modal-card {
+  position: relative;
+  width: min(400px, 100%);
+  padding: 26px 24px 22px;
+  border: 1px solid rgba(134, 68, 162, 0.4);
+  border-radius: 14px;
+  background: var(--card, rgba(15, 11, 26, 0.8));
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  color: var(--cream, #ffe8d9);
+  font-family: var(--font-body, "Inter", sans-serif);
+  transform: translateY(10px) scale(0.97);
+  opacity: 0;
+  transition: transform 180ms ease, opacity 180ms ease;
+}
+
+.auth-modal.is-open .auth-modal-card {
+  transform: translateY(0) scale(1);
+  opacity: 1;
+}
+
+.auth-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--cream-muted, rgba(255, 232, 217, 0.56));
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.auth-modal-close:hover {
+  background: rgba(134, 68, 162, 0.18);
+  color: var(--cream, #ffe8d9);
+}
+
+.auth-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 10px;
+  font-family: var(--font-display, "Pixelify Sans", monospace);
+  font-size: 17px;
+  letter-spacing: 0.04em;
+  color: var(--sunset-coral, #ff6b6b);
+}
+
+.auth-modal-text {
+  margin: 0 0 18px;
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--cream, #ffe8d9);
+}
+
+.auth-modal-ok {
+  display: inline-block;
+  padding: 9px 22px;
+  border: 1px solid rgba(134, 68, 162, 0.55);
+  border-radius: 9px;
+  background: rgba(134, 68, 162, 0.16);
+  color: var(--lavender, #c7b8e0);
+  font-family: var(--font-body, "Inter", sans-serif);
+  font-size: 13px;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.auth-modal-ok:hover {
+  background: rgba(134, 68, 162, 0.32);
+  color: var(--white, #ffffff);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-modal-backdrop,
+  .auth-modal-card {
+    transition: none;
+  }
+}

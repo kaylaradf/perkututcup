@@ -1,6 +1,54 @@
 (() => {
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+  // ------------------------------------------------ popup error autentikasi
+  // Modal custom bertema site; menggantikan pesan inline untuk error login/register.
+  let authModal = null;
+
+  const ensureAuthModal = () => {
+    if (authModal) return authModal;
+    authModal = document.createElement("div");
+    authModal.className = "auth-modal";
+    authModal.setAttribute("role", "alertdialog");
+    authModal.setAttribute("aria-modal", "true");
+    authModal.setAttribute("aria-labelledby", "auth-modal-title");
+    authModal.innerHTML = `
+      <div class="auth-modal-backdrop" data-auth-modal-close></div>
+      <div class="auth-modal-card">
+        <button class="auth-modal-close" type="button" data-auth-modal-close aria-label="Tutup">&times;</button>
+        <h3 class="auth-modal-title" id="auth-modal-title">
+          <img src="assets/svg/icon-alert.svg" alt="" width="20" height="20" onerror="this.style.display='none'" />
+          <span data-auth-modal-title-text>Terjadi Kesalahan</span>
+        </h3>
+        <p class="auth-modal-text" data-auth-modal-text></p>
+        <button class="auth-modal-ok" type="button" data-auth-modal-close>Mengerti</button>
+      </div>`;
+    document.body.appendChild(authModal);
+    authModal.addEventListener("click", (event) => {
+      if (event.target.closest("[data-auth-modal-close]")) hideAuthModal();
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !authModal.hidden) hideAuthModal();
+    });
+    return authModal;
+  };
+
+  const showAuthError = (form, text) => {
+    const modal = ensureAuthModal();
+    const isLockout = typeof text === "string" && text.includes("Akun dikunci");
+    modal.querySelector("[data-auth-modal-title-text]").textContent = isLockout ? "Akun Dikunci" : "Terjadi Kesalahan";
+    modal.querySelector("[data-auth-modal-text]").textContent = text;
+    modal.hidden = false;
+    requestAnimationFrame(() => modal.classList.add("is-open"));
+    modal.querySelector(".auth-modal-ok").focus();
+  };
+
+  const hideAuthModal = () => {
+    if (!authModal) return;
+    authModal.classList.remove("is-open");
+    setTimeout(() => { if (authModal) authModal.hidden = true; }, 180);
+  };
+
   const splitTitle = (heading) => {
     const title = heading.textContent.trim();
     const letters = document.createDocumentFragment();
@@ -330,20 +378,24 @@
           const first = Array.isArray(data.detail)
             ? data.detail.map((issue) => issue.msg).join(", ")
             : Object.values(data.detail).flat().join(", ");
-          if (message) message.textContent = first || "Data formulir tidak valid.";
+          showAuthError(form, first || "Data formulir tidak valid.");
         } else if (response.status === 409) {
-          if (message) message.textContent = "Email sudah terdaftar. Gunakan email lain.";
+          showAuthError(form, "Email sudah terdaftar. Gunakan email lain.");
         } else if (response.status === 401) {
-          if (message) message.textContent = data.detail || "Email atau kata sandi salah.";
+          showAuthError(form, typeof data.detail === "string" ? data.detail : "Email atau kata sandi salah.");
         } else if (response.status === 400 && data.detail?.captcha) {
-          if (message) message.textContent = data.detail.captcha;
+          showAuthError(form, data.detail.captcha);
           loadCaptcha();
           form.captchaAnswer.value = "";
+        } else if (response.status === 423 && data.detail?.lockout) {
+          showAuthError(form, data.detail.lockout);
+        } else if (response.status === 429) {
+          showAuthError(form, data.detail || "Terlalu banyak percobaan. Coba lagi sebentar lagi.");
         } else {
-          if (message) message.textContent = data.detail || "Terjadi kesalahan. Coba lagi.";
+          showAuthError(form, typeof data.detail === "string" ? data.detail : "Terjadi kesalahan. Coba lagi.");
         }
       } catch (error) {
-        if (message) message.textContent = "Tidak dapat menghubungi server. Coba lagi nanti.";
+        showAuthError(form, "Tidak dapat menghubungi server. Coba lagi nanti.");
       } finally {
         if (submitButton) submitButton.disabled = false;
       }

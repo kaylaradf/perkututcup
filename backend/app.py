@@ -23,6 +23,7 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 
 DB_DSN = os.environ["PERKUTUT_DATABASE_URL"]  # fail fast jika env var tidak diset
 SESSION_TTL_HOURS = 24
+MAX_FAILED_LOGINS = 5  # account lockout: 5x salah sandi -> akun terkunci, hubungi admin
 COOKIE_SECURE = os.environ.get("PERKUTUT_COOKIE_SECURE", "0") == "1"  # set 1 saat di-deploy di belakang HTTPS
 
 app = FastAPI(title="Perkutut Cup 2026 API", version="0.1.0")
@@ -59,8 +60,12 @@ CREATE TABLE IF NOT EXISTS users (
     full_name     TEXT NOT NULL,
     email         TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
-    created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    failed_login_count  INT NOT NULL DEFAULT 0,
+    locked_at           TIMESTAMPTZ
 );
+ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_login_count INT NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_at TIMESTAMPTZ;
 CREATE TABLE IF NOT EXISTS sessions (
     id         TEXT PRIMARY KEY,
     user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -303,11 +308,40 @@ def login(request: Request, payload: LoginIn, response: Response):
     require_captcha(payload)
     with db() as conn:
         row = conn.execute(
-            "SELECT id, full_name, email, password_hash FROM users WHERE email = %s",
+            "SELECT id, full_name, email, password_hash, failed_login_count, locked_at FROM users WHERE email = %s",
             (payload.email.lower(),),
         ).fetchone()
-    if row is None or not verify_password(payload.password, row["password_hash"]):
-        raise HTTPException(status_code=401, detail="Email atau kata sandi salah")
+
+        if row is None:
+            raise HTTPException(status_code=401, detail="Email atau kata sandi salah")
+
+        # Account lockout: 5 kegagalan -> akun terkunci, hanya admin yang bisa buka
+        if row["locked_at"] is not None:
+            raise HTTPException(
+                status_code=423,
+                detail={"lockout": "Akun dikunci karena terlalu banyak percobaan gagal. Hubungi admin untuk membuka kembali."},
+            )
+
+        if not verify_password(payload.password, row["password_hash"]):
+            failed = row["failed_login_count"] + 1
+            conn.execute(
+                "UPDATE users SET failed_login_count = %s, locked_at = CASE WHEN %s >= %s THEN now() ELSE locked_at END WHERE id = %s",
+                (failed, failed, MAX_FAILED_LOGINS, row["id"]),
+            )
+            conn.commit()  # catat kegagalan sebelum raise (with db() akan rollback jika exception lolos)
+            if failed >= MAX_FAILED_LOGINS:
+                raise HTTPException(
+                    status_code=423,
+                    detail={"lockout": f"Akun dikunci setelah {MAX_FAILED_LOGINS} kali salah kata sandi. Hubungi admin untuk membuka kembali."},
+                )
+            raise HTTPException(status_code=401, detail="Email atau kata sandi salah")
+
+        # login sukses: reset counter lockout
+        if row["failed_login_count"] > 0 or row["locked_at"] is not None:
+            conn.execute(
+                "UPDATE users SET failed_login_count = 0, locked_at = NULL WHERE id = %s",
+                (row["id"],),
+            )
     create_session(response, row["id"])
     return {"user": {"id": row["id"], "full_name": row["full_name"], "email": row["email"]}}
 
