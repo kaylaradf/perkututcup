@@ -4,8 +4,7 @@
   // ------------------------------------------------ dialog error autentikasi
   // Native <dialog> + showModal(): focus trap, background inert, Escape,
   // dan pemulihan fokus ditangani browser (WAI-ARIA APG / WCAG 2.2).
-  // Setelah dialog ditutup, pesan tetap tampil inline di form (live region)
-  // sesuai praktik design system: error form persist until resolved.
+  // Digunakan khusus untuk kegagalan autentikasi kritis / penguncian akun (lockout).
   let authDialog = null;
 
   const ensureAuthDialog = () => {
@@ -17,19 +16,32 @@
     authDialog.setAttribute("aria-describedby", "auth-dialog-text");
     authDialog.innerHTML = `
       <div class="auth-dialog-card">
-        <button class="auth-dialog-close" type="button" data-auth-dialog-close aria-label="Tutup">&times;</button>
-        <h3 class="auth-dialog-title" id="auth-dialog-title">
-          <img src="/assets/svg/icon-alert.svg" alt="" width="20" height="20" onerror="this.style.display='none'" />
-          <span data-auth-dialog-title-text>Terjadi Kesalahan</span>
-        </h3>
+        <div class="auth-dialog-header">
+          <div class="auth-dialog-badge" data-auth-dialog-badge aria-hidden="true">
+            <svg class="auth-dialog-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+          </div>
+          <button class="auth-dialog-close" type="button" data-auth-dialog-close aria-label="Tutup dialog">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+        <h3 class="auth-dialog-title" id="auth-dialog-title" data-auth-dialog-title-text>Gagal Masuk</h3>
         <p class="auth-dialog-text" id="auth-dialog-text" data-auth-dialog-text></p>
-        <button class="auth-dialog-ok" type="button" data-auth-dialog-close autofocus>Mengerti</button>
+        <div class="auth-dialog-actions">
+          <button class="auth-dialog-ok" type="button" data-auth-dialog-close autofocus>Mengerti</button>
+        </div>
       </div>`;
     document.body.appendChild(authDialog);
     authDialog.addEventListener("click", (event) => {
       if (event.target.closest("[data-auth-dialog-close]")) authDialog.close();
     });
-    // klik di backdrop (di luar kartu) juga menutup
+    // klik di backdrop (di luar kartu dialog) menutup modal
     authDialog.addEventListener("click", (event) => {
       if (event.target === authDialog) authDialog.close();
     });
@@ -40,14 +52,27 @@
     const message = form?.querySelector("[data-auth-message]");
     const dialog = ensureAuthDialog();
     const isLockout = typeof text === "string" && text.includes("Akun dikunci");
-    dialog.querySelector("[data-auth-dialog-title-text]").textContent = isLockout ? "Akun Dikunci" : "Terjadi Kesalahan";
-    dialog.querySelector("[data-auth-dialog-text]").textContent = text;
-    // 1. bersihkan status loading yang nyangkut + tampilkan inline (persist)
+    const isRateLimit = typeof text === "string" && text.includes("Terlalu banyak percobaan");
+    const titleText = isLockout
+      ? "Akun Dikunci"
+      : isRateLimit
+      ? "Batas Percobaan Terlampaui"
+      : "Gagal Masuk";
+
+    const titleEl = dialog.querySelector("[data-auth-dialog-title-text]");
+    const textEl = dialog.querySelector("[data-auth-dialog-text]");
+    const badgeEl = dialog.querySelector("[data-auth-dialog-badge]");
+
+    if (titleEl) titleEl.textContent = titleText;
+    if (textEl) textEl.textContent = text;
+    if (badgeEl) badgeEl.classList.toggle("is-lockout", isLockout);
+
+    // Persist inline message di form (live region)
     if (message) {
       message.textContent = text;
       message.classList.add("is-error");
     }
-    // 2. tampilkan modal di atasnya untuk perhatian langsung
+    // Tampilkan modal alert dialog
     if (!dialog.open) dialog.showModal();
   };
 
@@ -201,6 +226,7 @@
   });
 
   document.querySelectorAll("[data-auth-form]").forEach((form) => {
+    const email = form.querySelector('input[name="email"]');
     const password = form.querySelector('input[name="password"]');
     const confirmation = form.querySelector('input[name="confirmPassword"]');
     const message = form.querySelector("[data-auth-message]");
@@ -252,6 +278,102 @@
       });
     });
 
+    const setFieldError = (fieldName, errorMsg) => {
+      const input = form.querySelector(`input[name="${fieldName}"]`);
+      if (!input) return;
+      const field = input.closest(".auth-field");
+      const errorEl = field?.querySelector(`[data-field-error="${fieldName}"], .auth-field-error`);
+      if (errorMsg) {
+        input.setAttribute("aria-invalid", "true");
+        if (field) field.classList.add("has-error");
+        if (errorEl) errorEl.textContent = errorMsg;
+        input.setCustomValidity(errorMsg);
+      } else {
+        input.setAttribute("aria-invalid", "false");
+        if (field) field.classList.remove("has-error");
+        if (errorEl) errorEl.textContent = "";
+        input.setCustomValidity("");
+      }
+    };
+
+    // RFC 5322-compatible regex for client-side email format prevention
+    const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
+
+    let emailTouched = false;
+    const validateEmail = (showInline = false) => {
+      if (!email) return true;
+      const val = email.value.trim();
+      if (!val) {
+        if (showInline) setFieldError("email", "Alamat email wajib diisi.");
+        else email.setCustomValidity("Alamat email wajib diisi.");
+        return false;
+      }
+      if (val.length > 254) {
+        const msg = "Alamat email terlalu panjang (maksimal 254 karakter).";
+        if (showInline) setFieldError("email", msg);
+        else email.setCustomValidity(msg);
+        return false;
+      }
+      if (!EMAIL_REGEX.test(val)) {
+        const msg = "Format email tidak valid (contoh: nama@domain.com).";
+        if (showInline) setFieldError("email", msg);
+        else email.setCustomValidity(msg);
+        return false;
+      }
+      setFieldError("email", "");
+      return true;
+    };
+
+    email?.addEventListener("input", () => {
+      const field = email.closest(".auth-field");
+      const hasError = field?.classList.contains("has-error");
+      if (emailTouched || hasError) {
+        validateEmail(true);
+      } else {
+        validateEmail(false);
+      }
+    });
+
+    email?.addEventListener("blur", () => {
+      if (email.value.trim().length > 0) {
+        emailTouched = true;
+        validateEmail(true);
+      }
+    });
+
+    let fullNameTouched = false;
+    const validateFullName = (showInline = false) => {
+      if (!isJoinForm || !form.fullName) return true;
+      const val = form.fullName.value.trim();
+      if (!val) {
+        if (showInline) setFieldError("fullName", "Nama lengkap wajib diisi.");
+        else form.fullName.setCustomValidity("Nama lengkap wajib diisi.");
+        return false;
+      }
+      if (val.length > 100) {
+        const msg = "Nama lengkap maksimal 100 karakter.";
+        if (showInline) setFieldError("fullName", msg);
+        else form.fullName.setCustomValidity(msg);
+        return false;
+      }
+      setFieldError("fullName", "");
+      return true;
+    };
+
+    form.fullName?.addEventListener("input", () => {
+      const field = form.fullName.closest(".auth-field");
+      const hasError = field?.classList.contains("has-error");
+      if (fullNameTouched || hasError) validateFullName(true);
+      else validateFullName(false);
+    });
+
+    form.fullName?.addEventListener("blur", () => {
+      if (form.fullName.value.trim().length > 0) {
+        fullNameTouched = true;
+        validateFullName(true);
+      }
+    });
+
     const meter = form.querySelector("[data-password-meter]");
     const meterFill = form.querySelector("[data-password-meter-fill]");
     const meterLabel = form.querySelector("[data-password-meter-label]");
@@ -260,9 +382,19 @@
     const SCORE_LABELS = ["Sangat lemah", "Lemah", "Cukup", "Kuat", "Sangat kuat"];
     const SCORE_COLORS = ["#e5484d", "#e5784d", "#e2c34d", "#6bc26b", "#3fa650"];
 
-    const validatePassword = () => {
-      if (!password || !isJoinForm) return;
+    let passwordTouched = false;
+    const validatePassword = (showInline = false) => {
+      if (!password) return true;
       const value = password.value;
+      if (!value) {
+        if (showInline) setFieldError("password", "Kata sandi wajib diisi.");
+        else password.setCustomValidity("Kata sandi wajib diisi.");
+        return false;
+      }
+      if (!isJoinForm) {
+        setFieldError("password", "");
+        return true;
+      }
       const checks = {
         length: value.length >= PW_MIN && value.length <= PW_MAX,
         common: value.length >= PW_MIN && typeof window.zxcvbn === "function"
@@ -298,54 +430,179 @@
         }
       }
 
-      password.setCustomValidity(
-        value && !isStrong
-          ? `Gunakan minimal ${PW_MIN} karakter dan hindari kata sandi yang umum digunakan.`
-          : ""
-      );
+      if (!isStrong) {
+        const msg = `Kata sandi minimal ${PW_MIN} karakter dan tidak mudah ditebak.`;
+        if (showInline) setFieldError("password", msg);
+        else password.setCustomValidity(msg);
+        return false;
+      }
+
+      setFieldError("password", "");
+      return true;
     };
 
-    const validateConfirmation = () => {
-      if (!confirmation || !password) return;
-      confirmation.setCustomValidity(
-        confirmation.value && confirmation.value !== password.value
-          ? "Kata sandi belum sama."
-          : ""
-      );
+    let confirmTouched = false;
+    const validateConfirmation = (showInline = false) => {
+      if (!confirmation || !isJoinForm) return true;
+      if (!confirmation.value) {
+        if (showInline) setFieldError("confirmPassword", "Konfirmasi kata sandi wajib diisi.");
+        else confirmation.setCustomValidity("Konfirmasi kata sandi wajib diisi.");
+        return false;
+      }
+      if (confirmation.value !== password?.value) {
+        const msg = "Kata sandi belum sama.";
+        if (showInline) setFieldError("confirmPassword", msg);
+        else confirmation.setCustomValidity(msg);
+        return false;
+      }
+      setFieldError("confirmPassword", "");
+      return true;
     };
 
     password?.addEventListener("input", () => {
-      validatePassword();
-      validateConfirmation();
-    });
-    password?.addEventListener("focus", () => {
-      if (isJoinForm && passwordRules) passwordRules.hidden = false;
-    });
-    passwordField?.addEventListener("focusout", () => {
-      if (!passwordField.contains(document.activeElement) && passwordRules) {
-        passwordRules.hidden = true;
+      const field = password.closest(".auth-field");
+      const hasError = field?.classList.contains("has-error");
+      if (passwordTouched || hasError) validatePassword(true);
+      else validatePassword(false);
+      if (confirmation && (confirmTouched || confirmation.value)) {
+        validateConfirmation(true);
       }
     });
-    confirmation?.addEventListener("input", validateConfirmation);
+    password?.addEventListener("focus", () => {
+      if (isJoinForm && meter && password.value.length > 0) meter.hidden = false;
+    });
+    passwordField?.addEventListener("focusout", () => {
+      if (!passwordField.contains(document.activeElement) && meter) {
+        meter.hidden = true;
+      }
+    });
+    password?.addEventListener("blur", () => {
+      if (password.value) {
+        passwordTouched = true;
+        validatePassword(true);
+      }
+    });
+
+    confirmation?.addEventListener("input", () => {
+      const field = confirmation.closest(".auth-field");
+      const hasError = field?.classList.contains("has-error");
+      if (confirmTouched || hasError) validateConfirmation(true);
+      else validateConfirmation(false);
+    });
+    confirmation?.addEventListener("blur", () => {
+      if (confirmation.value) {
+        confirmTouched = true;
+        validateConfirmation(true);
+      }
+    });
+
+    const validateCaptcha = (showInline = false) => {
+      const captchaInput = form.querySelector('input[name="captchaAnswer"]');
+      const val = captchaInput?.value?.trim() || "";
+      if (!val) {
+        if (showInline) setFieldError("captchaAnswer", "Jawab soal verifikasi terlebih dahulu.");
+        else captchaInput?.setCustomValidity("Jawab soal verifikasi terlebih dahulu.");
+        return false;
+      }
+      setFieldError("captchaAnswer", "");
+      return true;
+    };
+
+    form.querySelector('input[name="captchaAnswer"]')?.addEventListener("input", () => {
+      const captchaInput = form.querySelector('input[name="captchaAnswer"]');
+      const hasError = captchaInput?.closest(".auth-field")?.classList.contains("has-error");
+      if (hasError) validateCaptcha(true);
+    });
+
+    const handleValidationErrors = (detail) => {
+      let firstInvalidInput = null;
+
+      const recordError = (fieldKey, msg) => {
+        let inputName = fieldKey;
+        if (fieldKey === "confirm_password") inputName = "confirmPassword";
+        if (fieldKey === "full_name") inputName = "fullName";
+        if (fieldKey === "captcha_answer" || fieldKey === "captcha_id") inputName = "captchaAnswer";
+
+        let indonesianMsg = msg;
+        if (fieldKey === "email") {
+          indonesianMsg = "Format email tidak valid atau tidak didukung.";
+        } else if (fieldKey === "confirm_password" || fieldKey === "confirmPassword") {
+          indonesianMsg = "Kata sandi belum sama.";
+        } else if (fieldKey === "password") {
+          indonesianMsg = typeof msg === "string" && msg.includes("Minimal")
+            ? msg
+            : "Kata sandi tidak memenuhi kebijakan keamanan.";
+        } else if (fieldKey === "captcha" || fieldKey === "captcha_answer") {
+          indonesianMsg = "Jawaban verifikasi salah atau kedaluwarsa.";
+          loadCaptcha();
+        } else if (fieldKey === "full_name") {
+          indonesianMsg = "Nama lengkap tidak valid.";
+        }
+
+        const input = form.querySelector(`input[name="${inputName}"]`);
+        if (input) {
+          setFieldError(inputName, indonesianMsg);
+          if (!firstInvalidInput) firstInvalidInput = input;
+        } else if (message) {
+          message.textContent = indonesianMsg || "Data formulir tidak valid.";
+          message.classList.add("is-error");
+        }
+      };
+
+      if (Array.isArray(detail)) {
+        detail.forEach((issue) => {
+          const fieldKey = issue.loc && issue.loc.length ? issue.loc[issue.loc.length - 1] : "";
+          recordError(fieldKey, issue.msg);
+        });
+      } else if (typeof detail === "object" && detail !== null) {
+        Object.entries(detail).forEach(([key, val]) => {
+          const text = Array.isArray(val) ? val.join(". ") : String(val);
+          recordError(key, text);
+        });
+      } else if (message) {
+        message.textContent = typeof detail === "string" ? detail : "Data formulir tidak valid.";
+        message.classList.add("is-error");
+      }
+
+      if (firstInvalidInput) {
+        firstInvalidInput.focus();
+      }
+    };
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
-      validatePassword();
-      validateConfirmation();
-      if (!form.reportValidity()) return;
 
-      const submitButton = form.querySelector(".auth-submit");
-      if (submitButton) submitButton.disabled = true;
       if (message) {
+        message.textContent = "";
         message.classList.remove("is-error");
-        message.textContent = isJoinForm ? "Mendaftarkan akun..." : "Memverifikasi akun...";
+      }
+
+      // 1. Jalankan semua validasi inline client-side
+      const isFullNameValid = validateFullName(true);
+      const isEmailValid = validateEmail(true);
+      const isPasswordValid = validatePassword(true);
+      const isConfirmValid = validateConfirmation(true);
+      const isCaptchaValid = validateCaptcha(true);
+
+      const isValid = isFullNameValid && isEmailValid && isPasswordValid && isConfirmValid && isCaptchaValid;
+      if (!isValid) {
+        const firstErrorField = form.querySelector(".auth-field.has-error input");
+        if (firstErrorField) firstErrorField.focus();
+        return;
       }
 
       const captchaId = form.querySelector("[data-captcha]")?.dataset.captchaId;
       const captchaAnswer = form.captchaAnswer?.value?.trim() || "";
       if (!captchaId || !captchaAnswer) {
-        if (message) message.textContent = "Jawab soal verifikasi terlebih dahulu.";
+        setFieldError("captchaAnswer", "Jawab soal verifikasi terlebih dahulu.");
+        form.captchaAnswer?.focus();
         return;
+      }
+
+      const submitButton = form.querySelector(".auth-submit");
+      if (submitButton) submitButton.disabled = true;
+      if (message) {
+        message.textContent = isJoinForm ? "Mendaftarkan akun..." : "Memverifikasi akun...";
       }
 
       try {
@@ -359,7 +616,12 @@
               captcha_id: captchaId,
               captcha_answer: captchaAnswer,
             }
-          : { email: form.email.value.trim(), password: password.value, captcha_id: captchaId, captcha_answer: captchaAnswer };
+          : {
+              email: form.email.value.trim(),
+              password: password.value,
+              captcha_id: captchaId,
+              captcha_answer: captchaAnswer,
+            };
 
         const response = await fetch(endpoint, {
           method: "POST",
@@ -370,35 +632,61 @@
         const data = await response.json().catch(() => ({}));
 
         if (response.ok) {
-          if (message) message.textContent = isJoinForm
-            ? "Akun berhasil dibuat. Mengalihkan ke dashboard..."
-            : "Login berhasil. Mengalihkan ke dashboard...";
+          if (message) {
+            message.textContent = isJoinForm
+              ? "Akun berhasil dibuat. Mengalihkan ke dashboard..."
+              : "Login berhasil. Mengalihkan ke dashboard...";
+          }
           window.location.href = "../dashboard/profile/";
           return;
         }
 
-        if (response.status === 422 && data.detail) {
-          const first = Array.isArray(data.detail)
-            ? data.detail.map((issue) => issue.msg).join(", ")
-            : Object.values(data.detail).flat().join(", ");
-          showAuthError(form, first || "Data formulir tidak valid.");
-        } else if (response.status === 409) {
-          showAuthError(form, "Email sudah terdaftar. Gunakan email lain.");
-        } else if (response.status === 401) {
-          showAuthError(form, typeof data.detail === "string" ? data.detail : "Email atau kata sandi salah.");
-        } else if (response.status === 400 && data.detail?.captcha) {
-          showAuthError(form, data.detail.captcha);
+        // Tangani respons error — refresh captcha setelah setiap percobaan gagal
+        const refreshCaptchaAfterError = (focusCaptcha = false) => {
           loadCaptcha();
-          form.captchaAnswer.value = "";
+          if (form.captchaAnswer) {
+            form.captchaAnswer.value = "";
+            if (focusCaptcha) form.captchaAnswer.focus();
+          }
+        };
+
+        if (response.status === 422 && data.detail) {
+          // Field error lokal: cegah modal popup, tampilkan inline
+          if (message) message.textContent = "";
+          handleValidationErrors(data.detail);
+          refreshCaptchaAfterError();
+        } else if (response.status === 409) {
+          // Email sudah terdaftar: tampilkan inline di bawah input email
+          if (message) message.textContent = "";
+          setFieldError("email", "Email sudah terdaftar. Gunakan email lain atau silakan masuk.");
+          form.email?.focus();
+          refreshCaptchaAfterError();
+        } else if (response.status === 400 && data.detail?.captcha) {
+          // Captcha salah: tampilkan inline di bawah input captcha
+          if (message) message.textContent = "";
+          setFieldError("captchaAnswer", data.detail.captcha || "Jawaban verifikasi salah atau kedaluwarsa.");
+          refreshCaptchaAfterError(true);
+        } else if (response.status === 401) {
+          // Kegagalan autentikasi kredensial -> alert dialog
+          const text = typeof data.detail === "string" ? data.detail : "Email atau kata sandi salah.";
+          showAuthError(form, text);
+          refreshCaptchaAfterError();
         } else if (response.status === 423 && data.detail?.lockout) {
+          // Akun dikunci (lockout) -> alert dialog
           showAuthError(form, data.detail.lockout);
+          refreshCaptchaAfterError();
         } else if (response.status === 429) {
-          showAuthError(form, data.detail || "Terlalu banyak percobaan. Coba lagi sebentar lagi.");
+          // Rate limit -> alert dialog
+          showAuthError(form, typeof data.detail === "string" ? data.detail : "Terlalu banyak percobaan. Coba lagi sebentar lagi.");
+          refreshCaptchaAfterError();
         } else {
           showAuthError(form, typeof data.detail === "string" ? data.detail : "Terjadi kesalahan. Coba lagi.");
+          refreshCaptchaAfterError();
         }
       } catch (error) {
         showAuthError(form, "Tidak dapat menghubungi server. Coba lagi nanti.");
+        loadCaptcha();
+        if (form.captchaAnswer) form.captchaAnswer.value = "";
       } finally {
         if (submitButton) submitButton.disabled = false;
       }

@@ -37,30 +37,33 @@
       <p class="auth-subtitle">Buat akun untuk bergabung dengan Perkutut Cup 2026.</p>
 
       <form class="auth-form" data-auth-form="join" novalidate>
-        <label class="auth-field">
-          <span>Full Name</span>
+        <label class="auth-field" for="join-fullname">
+          <span>Nama Lengkap</span>
           <span class="auth-control">
-            <input name="fullName" type="text" autocomplete="name" placeholder="Masukkan nama lengkap" data-allowlist="name" maxlength="100" required />
+            <input id="join-fullname" name="fullName" type="text" autocomplete="name" placeholder="Masukkan nama lengkap" data-allowlist="name" maxlength="100" required aria-describedby="join-fullname-error" />
           </span>
+          <span class="auth-field-error" id="join-fullname-error" data-field-error="fullName" role="alert" aria-live="polite"></span>
         </label>
 
-        <label class="auth-field">
+        <label class="auth-field" for="join-email">
           <span>Email</span>
           <span class="auth-control">
             <img class="auth-field-icon" src="../assets/svg/icon-mail.svg" width="14" height="14" alt="" />
-            <input name="email" type="email" autocomplete="email" placeholder="Masukkan alamat email" data-allowlist="email" maxlength="254" required />
+            <input id="join-email" name="email" type="email" autocomplete="email" placeholder="Masukkan alamat email" data-allowlist="email" maxlength="254" required aria-describedby="join-email-error" />
           </span>
+          <span class="auth-field-error" id="join-email-error" data-field-error="email" role="alert" aria-live="polite"></span>
         </label>
 
-        <label class="auth-field auth-field--password">
-          <span>Password</span>
+        <label class="auth-field auth-field--password" for="join-password">
+          <span>Kata Sandi</span>
           <span class="auth-control">
             <img class="auth-field-icon" src="../assets/svg/icon-lock.svg" width="14" height="14" alt="" />
-            <input name="password" type="password" autocomplete="new-password" placeholder="Buat kata sandi" data-allowlist="" aria-describedby="password-rules" minlength="15" maxlength="64" required />
+            <input id="join-password" name="password" type="password" autocomplete="new-password" placeholder="Buat kata sandi" data-allowlist="" aria-describedby="password-rules join-password-error" minlength="15" maxlength="64" required />
             <button class="auth-password-toggle" type="button" data-password-toggle aria-label="Tampilkan kata sandi" aria-pressed="false">
               <img src="../assets/svg/icon-eye.svg" width="14" height="14" alt="" />
             </button>
           </span>
+          <span class="auth-field-error" id="join-password-error" data-field-error="password" role="alert" aria-live="polite"></span>
           <div class="password-meter" data-password-meter hidden>
             <div class="password-meter-bar"><span data-password-meter-fill></span></div>
             <p class="password-meter-label" data-password-meter-label></p>
@@ -72,25 +75,27 @@
           </div>
         </label>
 
-        <label class="auth-field">
-          <span>Confirm Password</span>
+        <label class="auth-field" for="join-confirm-password">
+          <span>Konfirmasi Kata Sandi</span>
           <span class="auth-control">
             <img class="auth-field-icon" src="../assets/svg/icon-lock.svg" width="14" height="14" alt="" />
-            <input name="confirmPassword" type="password" autocomplete="new-password" placeholder="Ulangi kata sandi" data-allowlist="" minlength="15" maxlength="64" required />
+            <input id="join-confirm-password" name="confirmPassword" type="password" autocomplete="new-password" placeholder="Ulangi kata sandi" data-allowlist="" minlength="15" maxlength="64" required aria-describedby="join-confirm-error" />
             <button class="auth-password-toggle" type="button" data-password-toggle aria-label="Tampilkan kata sandi" aria-pressed="false">
               <img src="../assets/svg/icon-eye.svg" width="14" height="14" alt="" />
             </button>
           </span>
+          <span class="auth-field-error" id="join-confirm-error" data-field-error="confirmPassword" role="alert" aria-live="polite"></span>
         </label>
 
         <div class="auth-field auth-field--captcha" data-captcha>
           <span class="captcha-question" data-captcha-question>Memuat soal verifikasi…</span>
           <span class="auth-control">
-            <input name="captchaAnswer" type="text" inputmode="numeric" autocomplete="off" placeholder="Jawaban" data-allowlist="digits" aria-label="Jawaban verifikasi" maxlength="4" required />
+            <input id="join-captcha" name="captchaAnswer" type="text" inputmode="numeric" autocomplete="off" placeholder="Jawaban" data-allowlist="digits" aria-label="Jawaban verifikasi" maxlength="4" required aria-describedby="join-captcha-error" />
             <button class="auth-captcha-refresh" type="button" data-captcha-refresh aria-label="Ganti soal">
               <img src="../assets/svg/icon-refresh.svg" width="14" height="14" alt="" />
             </button>
           </span>
+          <span class="auth-field-error" id="join-captcha-error" data-field-error="captchaAnswer" role="alert" aria-live="polite"></span>
         </div>
 
         <button class="auth-submit" type="submit">Buat Akun</button>
