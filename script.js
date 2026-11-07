@@ -1,52 +1,54 @@
 (() => {
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  // ------------------------------------------------ popup error autentikasi
-  // Modal custom bertema site; menggantikan pesan inline untuk error login/register.
-  let authModal = null;
+  // ------------------------------------------------ dialog error autentikasi
+  // Native <dialog> + showModal(): focus trap, background inert, Escape,
+  // dan pemulihan fokus ditangani browser (WAI-ARIA APG / WCAG 2.2).
+  // Setelah dialog ditutup, pesan tetap tampil inline di form (live region)
+  // sesuai praktik design system: error form persist until resolved.
+  let authDialog = null;
 
-  const ensureAuthModal = () => {
-    if (authModal) return authModal;
-    authModal = document.createElement("div");
-    authModal.className = "auth-modal";
-    authModal.setAttribute("role", "alertdialog");
-    authModal.setAttribute("aria-modal", "true");
-    authModal.setAttribute("aria-labelledby", "auth-modal-title");
-    authModal.innerHTML = `
-      <div class="auth-modal-backdrop" data-auth-modal-close></div>
-      <div class="auth-modal-card">
-        <button class="auth-modal-close" type="button" data-auth-modal-close aria-label="Tutup">&times;</button>
-        <h3 class="auth-modal-title" id="auth-modal-title">
+  const ensureAuthDialog = () => {
+    if (authDialog) return authDialog;
+    authDialog = document.createElement("dialog");
+    authDialog.className = "auth-dialog";
+    authDialog.setAttribute("role", "alertdialog");
+    authDialog.setAttribute("aria-labelledby", "auth-dialog-title");
+    authDialog.setAttribute("aria-describedby", "auth-dialog-text");
+    authDialog.innerHTML = `
+      <div class="auth-dialog-card">
+        <button class="auth-dialog-close" type="button" data-auth-dialog-close aria-label="Tutup">&times;</button>
+        <h3 class="auth-dialog-title" id="auth-dialog-title">
           <img src="assets/svg/icon-alert.svg" alt="" width="20" height="20" onerror="this.style.display='none'" />
-          <span data-auth-modal-title-text>Terjadi Kesalahan</span>
+          <span data-auth-dialog-title-text>Terjadi Kesalahan</span>
         </h3>
-        <p class="auth-modal-text" data-auth-modal-text></p>
-        <button class="auth-modal-ok" type="button" data-auth-modal-close>Mengerti</button>
+        <p class="auth-dialog-text" id="auth-dialog-text" data-auth-dialog-text></p>
+        <button class="auth-dialog-ok" type="button" data-auth-dialog-close autofocus>Mengerti</button>
       </div>`;
-    document.body.appendChild(authModal);
-    authModal.addEventListener("click", (event) => {
-      if (event.target.closest("[data-auth-modal-close]")) hideAuthModal();
+    document.body.appendChild(authDialog);
+    authDialog.addEventListener("click", (event) => {
+      if (event.target.closest("[data-auth-dialog-close]")) authDialog.close();
     });
-    document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape" && !authModal.hidden) hideAuthModal();
+    // klik di backdrop (di luar kartu) juga menutup
+    authDialog.addEventListener("click", (event) => {
+      if (event.target === authDialog) authDialog.close();
     });
-    return authModal;
+    return authDialog;
   };
 
   const showAuthError = (form, text) => {
-    const modal = ensureAuthModal();
+    const message = form?.querySelector("[data-auth-message]");
+    const dialog = ensureAuthDialog();
     const isLockout = typeof text === "string" && text.includes("Akun dikunci");
-    modal.querySelector("[data-auth-modal-title-text]").textContent = isLockout ? "Akun Dikunci" : "Terjadi Kesalahan";
-    modal.querySelector("[data-auth-modal-text]").textContent = text;
-    modal.hidden = false;
-    requestAnimationFrame(() => modal.classList.add("is-open"));
-    modal.querySelector(".auth-modal-ok").focus();
-  };
-
-  const hideAuthModal = () => {
-    if (!authModal) return;
-    authModal.classList.remove("is-open");
-    setTimeout(() => { if (authModal) authModal.hidden = true; }, 180);
+    dialog.querySelector("[data-auth-dialog-title-text]").textContent = isLockout ? "Akun Dikunci" : "Terjadi Kesalahan";
+    dialog.querySelector("[data-auth-dialog-text]").textContent = text;
+    // 1. bersihkan status loading yang nyangkut + tampilkan inline (persist)
+    if (message) {
+      message.textContent = text;
+      message.classList.add("is-error");
+    }
+    // 2. tampilkan modal di atasnya untuk perhatian langsung
+    if (!dialog.open) dialog.showModal();
   };
 
   const splitTitle = (heading) => {
@@ -335,6 +337,7 @@
       const submitButton = form.querySelector(".auth-submit");
       if (submitButton) submitButton.disabled = true;
       if (message) {
+        message.classList.remove("is-error");
         message.textContent = isJoinForm ? "Mendaftarkan akun..." : "Memverifikasi akun...";
       }
 
