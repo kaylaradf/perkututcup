@@ -348,6 +348,10 @@ def update_me(payload: ProfileIn, request: Request):
     if not updates:
         raise HTTPException(status_code=422, detail="Tidak ada perubahan")
 
+    # CWE-89 defense-in-depth: whitelist nama kolom (nilai tetap lewat parameter %s)
+    if not set(updates) <= set(PROFILE_FIELDS):
+        raise HTTPException(status_code=422, detail="Field tidak dikenal")
+
     if "birth_date" in updates:
         updates["birth_date"] = datetime.strptime(updates["birth_date"], "%Y-%m-%d").date()
 
