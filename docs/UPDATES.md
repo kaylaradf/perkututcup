@@ -19,6 +19,7 @@ di sini — lihat `git log` untuk riwayat lengkap.
 | v2.0 | 2026-11-05 | Backend autentikasi: PostgreSQL, session, guard dashboard, integrasi API | [`docs/AUTH-UPDATES.md`](docs/AUTH-UPDATES.md) | `1daf95a`..`e9b5ffd` |
 | v2.1 | 2026-11-05 | Hardening auth: kebijakan password NIST-style, password meter, CAPTCHA perkalian | [`docs/AUTH-UPDATES.md`](docs/AUTH-UPDATES.md) | `b15cf6b`..`826319b` |
 | v2.2 | 2026-11-05 | Hardening input: whitelist kolom UPDATE & rate limiting anti brute-force | [`docs/RATE-LIMITING.md`](docs/RATE-LIMITING.md) | `7440b2c`, `2770d0e` |
+| v2.3 | 2026-11-07 | Account lockout (5x salah sandi) & popup error custom | [`docs/ACCOUNT-LOCKOUT.md`](docs/ACCOUNT-LOCKOUT.md) | `7713c53` |
 
 ## Detail
 
@@ -54,3 +55,14 @@ Commit: `7440b2c`, `2770d0e`. Detail lengkap di [`docs/RATE-LIMITING.md`](docs/R
 - Rate limiting per IP via slowapi: captcha 10/menit, register 5/menit,
   login 10/menit; pelanggaran → 429 + header `Retry-After`.
 - Petunjuk migrasi ke storage Redis untuk skala multi-worker.
+
+### v2.3 — Account Lockout & Popup Error (2026-11-07)
+
+Kebijakan penguncian akun dan perbaikan UX pelaporan error.
+Commit: `7713c53`. Detail lengkap di [`docs/ACCOUNT-LOCKOUT.md`](docs/ACCOUNT-LOCKOUT.md).
+
+- Akun terkunci otomatis setelah 5 kali gagal login (HTTP 423);
+  pembukaan hanya melalui admin, tanpa reset mandiri.
+- Counter kegagalan di-reset saat login berhasil.
+- Semua error autentikasi (400/401/409/422/423/429) kini tampil sebagai
+  modal popup bertema situs, bukan pesan inline.
