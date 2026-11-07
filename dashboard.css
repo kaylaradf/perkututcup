@@ -1,9 +1,185 @@
 /* Perkutut Cup 2026 — dashboard (profile & team, project submission) */
 
+/* =====================================================================
+   THEME TOKENS
+   Dark is default. Light theme applied via [data-theme="light"] on
+   <html>. Inline script in each dashboard page resolves preference
+   before first paint (localStorage → prefers-color-scheme → dark).
+   ===================================================================== */
+
+/* ——— Dark tokens (default) ——— */
+:root {
+  --dash-bg-gradient:
+    linear-gradient(90deg, rgba(11, 12, 16, 0.62) 0 288px, transparent 288px),
+    radial-gradient(circle at 82% 8%, rgba(134, 68, 162, 0.28), transparent 46%),
+    radial-gradient(circle at 12% 88%, rgba(255, 107, 107, 0.18), transparent 48%),
+    linear-gradient(180deg, #0b0c10 0%, #17122b 58%, #241c3c 100%);
+  --dash-bg-gradient-mobile:
+    radial-gradient(circle at 82% 8%, rgba(134, 68, 162, 0.28), transparent 46%),
+    radial-gradient(circle at 12% 88%, rgba(255, 107, 107, 0.18), transparent 48%),
+    linear-gradient(180deg, #0b0c10 0%, #17122b 58%, #241c3c 100%);
+  --dash-surface:          rgba(15, 11, 26, 0.78);
+  --dash-card:             rgba(15, 11, 26, 0.80);
+  --dash-upload-item-bg:   rgba(15, 11, 26, 0.35);
+  --dash-proof-bg:         rgba(15, 11, 26, 0.35);
+  --dash-closed-box-bg:    rgba(15, 11, 26, 0.45);
+  --dash-brand-mark-bg:    #0f172a;
+  --dash-border:           rgba(255, 232, 217, 0.13);
+  --dash-border-subtle:    rgba(255, 232, 217, 0.10);
+  --dash-border-mid:       rgba(255, 232, 217, 0.12);
+  --dash-border-side:      rgba(255, 107, 107, 0.18);
+  --dash-team-bg:          rgba(255, 232, 217, 0.045);
+  --dash-nav-hover:        rgba(255, 232, 217, 0.07);
+  --dash-metric-icon-bg:   rgba(255, 232, 217, 0.07);
+  --dash-input-bg:         rgba(255, 232, 217, 0.065);
+  --dash-input-border:     rgba(255, 232, 217, 0.14);
+  --dash-phone-code-bg:    rgba(255, 232, 217, 0.065);
+  --dash-team-code-bg:     rgba(255, 232, 217, 0.06);
+  --dash-team-code-border: rgba(255, 232, 217, 0.16);
+  --dash-team-member-bg:   rgba(255, 232, 217, 0.045);
+  --dash-team-member-border: rgba(255, 232, 217, 0.12);
+  --dash-proof-icon-bg:    rgba(255, 232, 217, 0.05);
+  --dash-guide-step-bg:    rgba(255, 232, 217, 0.035);
+  --dash-guide-step-border: rgba(255, 232, 217, 0.11);
+  --dash-file-row-bg:      rgba(255, 232, 217, 0.035);
+  --dash-track-box-bg:     rgba(255, 232, 217, 0.04);
+  --dash-tab-bg:           rgba(255, 232, 217, 0.06);
+  --dash-tab-badge-bg:     rgba(255, 232, 217, 0.12);
+  --dash-lock-banner-bg:   rgba(255, 232, 217, 0.05);
+  --dash-lock-banner-border: rgba(255, 232, 217, 0.12);
+  --dash-file-dl-bg:       rgba(255, 232, 217, 0.05);
+  --dash-file-dl-border:   rgba(255, 232, 217, 0.16);
+  --dash-form-divider:     rgba(255, 232, 217, 0.10);
+  --dash-text-primary:     var(--white);
+  --dash-text-body:        var(--cream);
+  --dash-text-muted:       rgba(255, 232, 217, 0.58);
+  --dash-text-faint:       rgba(255, 232, 217, 0.52);
+  --dash-text-dimmer:      rgba(255, 232, 217, 0.5);
+  --dash-text-dimmed:      rgba(255, 232, 217, 0.45);
+  --dash-text-ghost:       rgba(255, 232, 217, 0.40);
+  --dash-text-nav:         rgba(255, 232, 217, 0.66);
+  --dash-text-foot:        rgba(255, 232, 217, 0.60);
+  --dash-text-team-code:   rgba(255, 232, 217, 0.62);
+  --dash-text-link-dl:     rgba(255, 232, 217, 0.62);
+  --dash-text-track-link:  rgba(255, 232, 217, 0.62);
+  --dash-metric-label:     rgba(255, 232, 217, 0.52);
+  --dash-metric-note:      rgba(255, 232, 217, 0.45);
+  --dash-field-label:      rgba(255, 232, 217, 0.52);
+  --dash-placeholder:      rgba(255, 232, 217, 0.32);
+  --dash-card-head-border: rgba(255, 232, 217, 0.10);
+  --dash-proof-dashed:     rgba(255, 232, 217, 0.30);
+  --dash-upload-border:    rgba(255, 232, 217, 0.13);
+  --dash-upload-thumb-border: rgba(255, 232, 217, 0.16);
+  --dash-avatar-ring:      rgba(199, 184, 224, 0.35);
+  --dash-brand-ring:       rgba(255, 232, 217, 0.25);
+  --dash-member-img-border: rgba(255, 232, 217, 0.55);
+  --dash-desc-list-text:   rgba(255, 232, 217, 0.62);
+  --dash-desc-sub-text:    rgba(255, 232, 217, 0.52);
+  --dash-hint:             rgba(255, 232, 217, 0.4);
+  --dash-hint-text:        rgba(255, 232, 217, 0.4);
+  --dash-proof-h3:         rgba(255, 232, 217, 0.5);
+  --dash-tabs-label:       rgba(255, 232, 217, 0.5);
+  --dash-toggle-bg:        rgba(255, 232, 217, 0.08);
+  --dash-toggle-border:    rgba(255, 232, 217, 0.18);
+  --dash-toggle-text:      rgba(255, 232, 217, 0.65);
+  --dash-toggle-hover-bg:  rgba(255, 232, 217, 0.13);
+  --dash-toggle-icon-moon: 1;
+  --dash-toggle-icon-sun:  0;
+  --dash-file-small-color: #fbbf24;
+  --dash-metric-link:      #6ee7b7;
+  --dash-inline-link:      #6ee7b7;
+  /* meta tag for browser chrome (updated via JS) */
+  --dash-theme-color:      #0b0c10;
+}
+
+/* ——— Light tokens ——— */
+[data-theme="light"] {
+  --dash-bg-gradient:
+    linear-gradient(90deg, rgba(240, 236, 255, 0.72) 0 288px, transparent 288px),
+    radial-gradient(circle at 82% 8%, rgba(134, 68, 162, 0.12), transparent 46%),
+    radial-gradient(circle at 12% 88%, rgba(255, 107, 107, 0.09), transparent 48%),
+    linear-gradient(180deg, #f4f1ff 0%, #ede9ff 58%, #e8e2ff 100%);
+  --dash-bg-gradient-mobile:
+    radial-gradient(circle at 82% 8%, rgba(134, 68, 162, 0.12), transparent 46%),
+    radial-gradient(circle at 12% 88%, rgba(255, 107, 107, 0.09), transparent 48%),
+    linear-gradient(180deg, #f4f1ff 0%, #ede9ff 58%, #e8e2ff 100%);
+  --dash-surface:          rgba(255, 255, 255, 0.90);
+  --dash-card:             rgba(255, 255, 255, 0.92);
+  --dash-upload-item-bg:   rgba(240, 236, 255, 0.60);
+  --dash-proof-bg:         rgba(240, 236, 255, 0.60);
+  --dash-closed-box-bg:    rgba(220, 215, 245, 0.55);
+  --dash-brand-mark-bg:    #e8e4f7;
+  --dash-border:           rgba(100, 80, 160, 0.14);
+  --dash-border-subtle:    rgba(100, 80, 160, 0.10);
+  --dash-border-mid:       rgba(100, 80, 160, 0.12);
+  --dash-border-side:      rgba(255, 107, 107, 0.20);
+  --dash-team-bg:          rgba(100, 80, 160, 0.06);
+  --dash-nav-hover:        rgba(100, 80, 160, 0.08);
+  --dash-metric-icon-bg:   rgba(100, 80, 160, 0.09);
+  --dash-input-bg:         rgba(255, 255, 255, 0.85);
+  --dash-input-border:     rgba(100, 80, 160, 0.22);
+  --dash-phone-code-bg:    rgba(255, 255, 255, 0.85);
+  --dash-team-code-bg:     rgba(100, 80, 160, 0.07);
+  --dash-team-code-border: rgba(100, 80, 160, 0.18);
+  --dash-team-member-bg:   rgba(100, 80, 160, 0.06);
+  --dash-team-member-border: rgba(100, 80, 160, 0.12);
+  --dash-proof-icon-bg:    rgba(100, 80, 160, 0.06);
+  --dash-guide-step-bg:    rgba(100, 80, 160, 0.04);
+  --dash-guide-step-border: rgba(100, 80, 160, 0.11);
+  --dash-file-row-bg:      rgba(100, 80, 160, 0.04);
+  --dash-track-box-bg:     rgba(100, 80, 160, 0.04);
+  --dash-tab-bg:           rgba(100, 80, 160, 0.07);
+  --dash-tab-badge-bg:     rgba(100, 80, 160, 0.12);
+  --dash-lock-banner-bg:   rgba(100, 80, 160, 0.06);
+  --dash-lock-banner-border: rgba(100, 80, 160, 0.14);
+  --dash-file-dl-bg:       rgba(100, 80, 160, 0.06);
+  --dash-file-dl-border:   rgba(100, 80, 160, 0.18);
+  --dash-form-divider:     rgba(100, 80, 160, 0.12);
+  --dash-text-primary:     #1a0f35;
+  --dash-text-body:        #2d1f52;
+  --dash-text-muted:       #4a3870;
+  --dash-text-faint:       #5a4880;
+  --dash-text-dimmer:      #6a5490;
+  --dash-text-dimmed:      #7a6098;
+  --dash-text-ghost:       #8870a8;
+  --dash-text-nav:         #3d2c68;
+  --dash-text-foot:        #4a3878;
+  --dash-text-team-code:   #5a4880;
+  --dash-text-link-dl:     #4a3870;
+  --dash-text-track-link:  #4a3870;
+  --dash-metric-label:     #6a5490;
+  --dash-metric-note:      #7a6098;
+  --dash-field-label:      #6a5490;
+  --dash-placeholder:      #9a88b8;
+  --dash-card-head-border: rgba(100, 80, 160, 0.12);
+  --dash-proof-dashed:     rgba(100, 80, 160, 0.30);
+  --dash-upload-border:    rgba(100, 80, 160, 0.14);
+  --dash-upload-thumb-border: rgba(100, 80, 160, 0.20);
+  --dash-avatar-ring:      rgba(100, 80, 160, 0.35);
+  --dash-brand-ring:       rgba(100, 80, 160, 0.25);
+  --dash-member-img-border: rgba(100, 80, 160, 0.40);
+  --dash-desc-list-text:   #4a3870;
+  --dash-desc-sub-text:    #5a4880;
+  --dash-hint:             #8870a8;
+  --dash-hint-text:        #8870a8;
+  --dash-proof-h3:         #7a6098;
+  --dash-tabs-label:       #6a5490;
+  --dash-toggle-bg:        rgba(100, 80, 160, 0.09);
+  --dash-toggle-border:    rgba(100, 80, 160, 0.22);
+  --dash-toggle-text:      #4a3870;
+  --dash-toggle-hover-bg:  rgba(100, 80, 160, 0.14);
+  --dash-toggle-icon-moon: 0;
+  --dash-toggle-icon-sun:  1;
+  --dash-file-small-color: #b45309;
+  --dash-metric-link:      #0d7a5f;
+  --dash-inline-link:      #0d7a5f;
+  --dash-theme-color:      #f4f1ff;
+}
+
 .dash-body {
   min-width: 320px;
   min-height: 100vh;
-  color: var(--cream);
+  color: var(--dash-text-body);
   background: var(--obsidian-top);
   font-family: var(--font-text);
   font-size: 0.875rem;
@@ -13,11 +189,7 @@
   display: grid;
   grid-template-columns: 288px minmax(0, 1fr);
   min-height: 100vh;
-  background:
-    linear-gradient(90deg, rgba(11, 12, 16, 0.62) 0 288px, transparent 288px),
-    radial-gradient(circle at 82% 8%, rgba(134, 68, 162, 0.28), transparent 46%),
-    radial-gradient(circle at 12% 88%, rgba(255, 107, 107, 0.18), transparent 48%),
-    linear-gradient(180deg, #0b0c10 0%, #17122b 58%, #241c3c 100%);
+  background: var(--dash-bg-gradient);
 }
 
 /* ——— Sidebar ——— */
@@ -32,8 +204,8 @@
   height: 100vh;
   padding: 1.4rem 1.15rem;
   overflow-y: auto;
-  border-right: 1px solid rgba(255, 107, 107, 0.18);
-  background: rgba(15, 11, 26, 0.78);
+  border-right: 1px solid var(--dash-border-side);
+  background: var(--dash-surface);
   backdrop-filter: blur(10px);
 }
 
@@ -42,7 +214,7 @@
   align-items: center;
   gap: 0.85rem;
   padding: 0.55rem;
-  color: var(--white);
+  color: var(--dash-text-primary);
 }
 
 .dash-brand-mark {
@@ -51,9 +223,9 @@
   height: 40px;
   place-items: center;
   flex-shrink: 0;
-  border: 1px solid rgba(255, 232, 217, 0.25);
+  border: 1px solid var(--dash-brand-ring);
   border-radius: 50%;
-  background: #0f172a;
+  background: var(--dash-brand-mark-bg);
 }
 
 .dash-brand-mark img {
@@ -74,9 +246,9 @@
   gap: 0.85rem;
   margin-top: 1.5rem;
   padding: 0.9rem;
-  border: 1px solid rgba(255, 232, 217, 0.14);
+  border: 1px solid var(--dash-border-mid);
   border-radius: 14px;
-  background: rgba(255, 232, 217, 0.045);
+  background: var(--dash-team-bg);
 }
 
 .dash-avatar {
@@ -87,7 +259,7 @@
   flex-shrink: 0;
   border-radius: 50%;
   background: rgba(134, 68, 162, 0.28);
-  box-shadow: 0 0 0 2px rgba(199, 184, 224, 0.35);
+  box-shadow: 0 0 0 2px var(--dash-avatar-ring);
   color: var(--lavender);
   font-family: var(--font-heading);
   font-size: 0.9rem;
@@ -96,7 +268,7 @@
 
 .dash-team small {
   display: block;
-  color: rgba(255, 232, 217, 0.5);
+  color: var(--dash-text-dimmer);
   font-family: var(--font-mono);
   font-size: 0.66rem;
   letter-spacing: 0.09em;
@@ -105,7 +277,7 @@
 .dash-team strong {
   display: block;
   margin-top: 0.2rem;
-  color: var(--cream);
+  color: var(--dash-text-body);
   font-family: var(--font-heading);
   font-size: 0.85rem;
   font-weight: 700;
@@ -124,7 +296,7 @@
   padding: 0.72rem 0.95rem;
   border: 1px solid transparent;
   border-radius: 14px;
-  color: rgba(255, 232, 217, 0.66);
+  color: var(--dash-text-nav);
   font-family: var(--font-mono);
   font-size: 0.72rem;
   letter-spacing: 0.05em;
@@ -138,8 +310,8 @@
 
 .dash-nav a:hover,
 .dash-nav a:focus-visible {
-  background: rgba(255, 232, 217, 0.07);
-  color: var(--white);
+  background: var(--dash-nav-hover);
+  color: var(--dash-text-primary);
 }
 
 .dash-nav a.is-active {
@@ -156,7 +328,7 @@
   display: grid;
   gap: 0.3rem;
   padding-top: 1.1rem;
-  border-top: 1px solid rgba(255, 232, 217, 0.12);
+  border-top: 1px solid var(--dash-border-subtle);
 }
 
 .dash-aside-foot a {
@@ -165,7 +337,7 @@
   gap: 0.8rem;
   padding: 0.6rem 0.8rem;
   border-radius: 10px;
-  color: rgba(255, 232, 217, 0.6);
+  color: var(--dash-text-foot);
   font-family: var(--font-mono);
   font-size: 0.72rem;
   letter-spacing: 0.05em;
@@ -179,8 +351,8 @@
 
 .dash-aside-foot a:hover,
 .dash-aside-foot a:focus-visible {
-  background: rgba(255, 232, 217, 0.07);
-  color: var(--white);
+  background: var(--dash-nav-hover);
+  color: var(--dash-text-primary);
 }
 
 /* ——— Main ——— */
@@ -196,12 +368,12 @@
   font-size: clamp(1.9rem, 3.4vw, 2.6rem);
   font-weight: 400;
   letter-spacing: 0.01em;
-  color: var(--white);
+  color: var(--dash-text-primary);
 }
 
 .dash-page-sub {
   margin: 0.35rem 0 0;
-  color: rgba(255, 232, 217, 0.58);
+  color: var(--dash-text-muted);
   font-size: 0.82rem;
 }
 
@@ -220,9 +392,9 @@
   min-height: 104px;
   padding: 1.35rem 1.2rem;
   overflow: hidden;
-  border: 1px solid rgba(255, 232, 217, 0.13);
+  border: 1px solid var(--dash-border);
   border-radius: 14px;
-  background: var(--card);
+  background: var(--dash-card);
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.28);
 }
 
@@ -256,7 +428,7 @@
   place-items: center;
   flex-shrink: 0;
   border-radius: 10px;
-  background: rgba(255, 232, 217, 0.07);
+  background: var(--dash-metric-icon-bg);
 }
 
 .metric-icon img {
@@ -266,7 +438,7 @@
 
 .metric-label {
   margin: 0;
-  color: rgba(255, 232, 217, 0.52);
+  color: var(--dash-metric-label);
   font-family: var(--font-mono);
   font-size: 0.66rem;
   letter-spacing: 0.08em;
@@ -275,7 +447,7 @@
 
 .metric-value {
   margin: 0.2rem 0 0;
-  color: var(--white);
+  color: var(--dash-text-primary);
   font-family: var(--font-heading);
   font-size: 1.35rem;
   font-weight: 800;
@@ -285,7 +457,7 @@
 .metric-link {
   display: inline-block;
   margin-top: 0.15rem;
-  color: #6ee7b7;
+  color: var(--dash-metric-link);
   font-size: 0.71rem;
   font-weight: 600;
   text-decoration: underline;
@@ -296,14 +468,14 @@
   position: absolute;
   right: 1rem;
   bottom: 0.6rem;
-  color: rgba(255, 232, 217, 0.45);
+  color: var(--dash-metric-note);
   font-size: 0.6rem;
 }
 
 .dash-inline-link {
   display: inline-block;
   margin: 0.85rem 0 0;
-  color: #6ee7b7;
+  color: var(--dash-inline-link);
   font-family: var(--font-mono);
   font-size: 0.74rem;
   font-weight: 700;
@@ -332,9 +504,9 @@
 .card {
   position: relative;
   padding: 1.6rem;
-  border: 1px solid rgba(255, 232, 217, 0.13);
+  border: 1px solid var(--dash-border);
   border-radius: 18px;
-  background: var(--card);
+  background: var(--dash-card);
   box-shadow: 0 14px 34px rgba(0, 0, 0, 0.3);
 }
 
@@ -364,7 +536,7 @@
   justify-content: space-between;
   gap: 1rem;
   padding-bottom: 1rem;
-  border-bottom: 1px solid rgba(255, 232, 217, 0.1);
+  border-bottom: 1px solid var(--dash-card-head-border);
 }
 
 .card-head--plain {
@@ -374,7 +546,7 @@
 
 .card-head h2 {
   margin: 0;
-  color: var(--white);
+  color: var(--dash-text-primary);
   font-family: var(--font-heading);
   font-size: 0.9rem;
   font-weight: 800;
@@ -384,7 +556,7 @@
 
 .card-title {
   margin: 0;
-  color: var(--white);
+  color: var(--dash-text-primary);
   font-family: var(--font-heading);
   font-size: 0.9rem;
   font-weight: 800;
@@ -394,14 +566,14 @@
 
 .card-lead {
   margin: 0.4rem 0 0;
-  color: rgba(255, 232, 217, 0.58);
+  color: var(--dash-text-muted);
   font-size: 0.79rem;
   line-height: 1.55;
 }
 
 .card-sub {
   margin: 0.3rem 0 0;
-  color: rgba(255, 232, 217, 0.5);
+  color: var(--dash-text-dimmer);
   font-family: var(--font-mono);
   font-size: 0.7rem;
 }
@@ -439,7 +611,7 @@
 }
 
 .field > span:first-child {
-  color: rgba(255, 232, 217, 0.52);
+  color: var(--dash-field-label);
   font-family: var(--font-mono);
   font-size: 0.68rem;
   letter-spacing: 0.07em;
@@ -457,18 +629,18 @@
   width: 100%;
   min-height: 40px;
   padding: 0.62rem 0.9rem;
-  border: 1px solid rgba(255, 232, 217, 0.14);
+  border: 1px solid var(--dash-input-border);
   border-radius: 10px;
   outline: none;
-  background: rgba(255, 232, 217, 0.065);
-  color: var(--cream);
+  background: var(--dash-input-bg);
+  color: var(--dash-text-body);
   font-family: var(--font-text);
   font-size: 0.82rem;
   transition: border-color 160ms ease, box-shadow 160ms ease;
 }
 
 .input::placeholder {
-  color: rgba(255, 232, 217, 0.32);
+  color: var(--dash-placeholder);
 }
 
 .input:focus {
@@ -500,10 +672,10 @@
   align-items: center;
   gap: 0.4rem;
   padding: 0 0.7rem;
-  border: 1px solid rgba(255, 232, 217, 0.14);
+  border: 1px solid var(--dash-input-border);
   border-radius: 10px;
-  background: rgba(255, 232, 217, 0.065);
-  color: var(--cream);
+  background: var(--dash-phone-code-bg);
+  color: var(--dash-text-body);
   font-size: 0.78rem;
   font-weight: 600;
   white-space: nowrap;
@@ -535,7 +707,7 @@
 
 .field-hint {
   margin: 0;
-  color: rgba(255, 232, 217, 0.45);
+  color: var(--dash-hint);
   font-size: 0.68rem;
   font-style: italic;
   line-height: 1.5;
@@ -552,7 +724,7 @@
 .form-divider {
   height: 1px;
   margin: 0.6rem 0 0;
-  background: rgba(255, 232, 217, 0.1);
+  background: var(--dash-form-divider);
 }
 
 .upload-head {
@@ -563,7 +735,7 @@
 
 .upload-head h3 {
   margin: 0;
-  color: var(--white);
+  color: var(--dash-text-primary);
   font-family: var(--font-mono);
   font-size: 0.68rem;
   font-weight: 700;
@@ -582,9 +754,9 @@
   justify-content: space-between;
   gap: 1rem;
   padding: 0.9rem;
-  border: 1px solid rgba(255, 232, 217, 0.13);
+  border: 1px solid var(--dash-upload-border);
   border-radius: 14px;
-  background: rgba(15, 11, 26, 0.35);
+  background: var(--dash-upload-item-bg);
 }
 
 .upload-info {
@@ -598,7 +770,7 @@
   width: 45px;
   height: 45px;
   flex-shrink: 0;
-  border: 1px solid rgba(255, 232, 217, 0.16);
+  border: 1px solid var(--dash-upload-thumb-border);
   border-radius: 9px;
   object-fit: cover;
 }
@@ -609,7 +781,7 @@
 
 .upload-copy h4 {
   margin: 0;
-  color: var(--white);
+  color: var(--dash-text-primary);
   font-family: var(--font-heading);
   font-size: 0.74rem;
   font-weight: 800;
@@ -619,19 +791,19 @@
 
 .upload-copy p {
   margin: 0.2rem 0 0;
-  color: rgba(255, 232, 217, 0.52);
+  color: var(--dash-text-faint);
   font-size: 0.71rem;
 }
 
 .upload-copy a {
-  color: rgba(255, 232, 217, 0.68);
+  color: var(--dash-text-link-dl);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
 .upload-copy .upload-hint {
   margin-top: 0.3rem;
-  color: rgba(255, 232, 217, 0.4);
+  color: var(--dash-hint-text);
   font-size: 0.64rem;
   font-style: italic;
   line-height: 1.45;
@@ -694,7 +866,6 @@
   font-size: 0.72rem;
   text-align: center;
 }
-
 .dash-status:empty {
   display: none;
 }
@@ -702,10 +873,10 @@
 /* ——— Team card ——— */
 .team-code {
   padding: 0.3rem 0.7rem;
-  border: 1px solid rgba(255, 232, 217, 0.16);
+  border: 1px solid var(--dash-team-code-border);
   border-radius: 7px;
-  background: rgba(255, 232, 217, 0.06);
-  color: rgba(255, 232, 217, 0.62);
+  background: var(--dash-team-code-bg);
+  color: var(--dash-text-team-code);
   font-family: "Figma Terminess Mono", var(--font-mono);
   font-size: 0.7rem;
   white-space: nowrap;
@@ -717,23 +888,23 @@
   gap: 0.85rem;
   margin-top: 1rem;
   padding: 0.8rem;
-  border: 1px solid rgba(255, 232, 217, 0.12);
+  border: 1px solid var(--dash-team-member-border);
   border-radius: 14px;
-  background: rgba(255, 232, 217, 0.045);
+  background: var(--dash-team-member-bg);
 }
 
 .team-member img {
   width: 41px;
   height: 41px;
   flex-shrink: 0;
-  border: 2px solid rgba(255, 232, 217, 0.55);
+  border: 2px solid var(--dash-member-img-border);
   border-radius: 50%;
   object-fit: cover;
 }
 
 .team-member strong {
   display: block;
-  color: var(--white);
+  color: var(--dash-text-primary);
   font-family: var(--font-heading);
   font-size: 0.76rem;
   font-weight: 800;
@@ -744,7 +915,7 @@
 .team-member small {
   display: block;
   margin-top: 0.2rem;
-  color: rgba(255, 232, 217, 0.5);
+  color: var(--dash-text-dimmer);
   font-size: 0.7rem;
 }
 
@@ -767,7 +938,7 @@
 
 .proof-block h3 {
   margin: 0 0 0.55rem;
-  color: rgba(255, 232, 217, 0.5);
+  color: var(--dash-proof-h3);
   font-family: var(--font-mono);
   font-size: 0.64rem;
   letter-spacing: 0.08em;
@@ -779,9 +950,9 @@
   align-items: flex-start;
   gap: 0.85rem;
   padding: 1rem;
-  border: 1px solid rgba(255, 232, 217, 0.13);
+  border: 1px solid var(--dash-border);
   border-radius: 14px;
-  background: rgba(15, 11, 26, 0.35);
+  background: var(--dash-proof-bg);
 }
 
 .proof-icon {
@@ -790,9 +961,9 @@
   height: 45px;
   place-items: center;
   flex-shrink: 0;
-  border: 1px dashed rgba(255, 232, 217, 0.3);
+  border: 1px dashed var(--dash-proof-dashed);
   border-radius: 9px;
-  background: rgba(255, 232, 217, 0.05);
+  background: var(--dash-proof-icon-bg);
 }
 
 .proof-icon img {
@@ -802,7 +973,7 @@
 
 .proof h4 {
   margin: 0;
-  color: var(--white);
+  color: var(--dash-text-primary);
   font-family: var(--font-heading);
   font-size: 0.76rem;
   font-weight: 800;
@@ -812,13 +983,13 @@
 
 .proof p {
   margin: 0.2rem 0 0;
-  color: rgba(255, 232, 217, 0.52);
+  color: var(--dash-text-faint);
   font-size: 0.71rem;
 }
 
 .proof .proof-hint {
   margin-top: 0.35rem;
-  color: rgba(255, 232, 217, 0.4);
+  color: var(--dash-hint-text);
   font-size: 0.66rem;
   font-style: italic;
   line-height: 1.5;
@@ -833,14 +1004,14 @@
 
 .guide-step {
   padding: 1.1rem;
-  border: 1px solid rgba(255, 232, 217, 0.11);
+  border: 1px solid var(--dash-guide-step-border);
   border-radius: 14px;
-  background: rgba(255, 232, 217, 0.035);
+  background: var(--dash-guide-step-bg);
 }
 
 .guide-step h3 {
   margin: 0;
-  color: var(--cream);
+  color: var(--dash-text-body);
   font-family: var(--font-mono);
   font-size: 0.72rem;
   font-weight: 700;
@@ -850,7 +1021,7 @@
 
 .guide-step p {
   margin: 0.4rem 0 0;
-  color: rgba(255, 232, 217, 0.58);
+  color: var(--dash-text-muted);
   font-size: 0.77rem;
   line-height: 1.7;
 }
@@ -866,7 +1037,7 @@
 .desc-list li {
   display: flex;
   gap: 0.55rem;
-  color: rgba(255, 232, 217, 0.62);
+  color: var(--dash-desc-list-text);
   font-size: 0.78rem;
   line-height: 1.7;
 }
@@ -877,7 +1048,7 @@
 }
 
 .desc-list b {
-  color: var(--cream);
+  color: var(--dash-text-body);
   font-weight: 700;
 }
 
@@ -887,7 +1058,7 @@
   margin: 0.35rem 0 0;
   padding: 0;
   list-style: none;
-  color: rgba(255, 232, 217, 0.52);
+  color: var(--dash-desc-sub-text);
   font-size: 0.74rem;
 }
 
@@ -937,10 +1108,10 @@
   gap: 0.55rem;
   margin-top: 0.9rem;
   padding: 0.75rem 1rem;
-  border: 1px solid rgba(255, 232, 217, 0.12);
+  border: 1px solid var(--dash-lock-banner-border);
   border-radius: 14px;
-  background: rgba(255, 232, 217, 0.05);
-  color: rgba(255, 232, 217, 0.6);
+  background: var(--dash-lock-banner-bg);
+  color: var(--dash-text-dimmed);
   font-size: 0.75rem;
 }
 
@@ -962,9 +1133,9 @@
   justify-content: space-between;
   gap: 1rem;
   padding: 0.95rem;
-  border: 1px solid rgba(255, 232, 217, 0.12);
+  border: 1px solid var(--dash-border-mid);
   border-radius: 13px;
-  background: rgba(255, 232, 217, 0.035);
+  background: var(--dash-file-row-bg);
 }
 
 .file-info {
@@ -983,7 +1154,7 @@
 .file-info strong {
   display: block;
   overflow: hidden;
-  color: var(--cream);
+  color: var(--dash-text-body);
   font-family: var(--font-mono);
   font-size: 0.73rem;
   font-weight: 700;
@@ -994,7 +1165,7 @@
 .file-info small {
   display: block;
   margin-top: 0.15rem;
-  color: #fbbf24;
+  color: var(--dash-file-small-color);
   font-size: 0.68rem;
 }
 
@@ -1004,9 +1175,9 @@
   height: 36px;
   place-items: center;
   flex-shrink: 0;
-  border: 1px solid rgba(255, 232, 217, 0.16);
+  border: 1px solid var(--dash-file-dl-border);
   border-radius: 9px;
-  background: rgba(255, 232, 217, 0.05);
+  background: var(--dash-file-dl-bg);
 }
 
 .file-download img {
@@ -1026,9 +1197,9 @@
   gap: 1rem;
   margin-top: 1rem;
   padding: 1rem;
-  border: 1px solid rgba(255, 232, 217, 0.12);
+  border: 1px solid var(--dash-border-mid);
   border-radius: 14px;
-  background: rgba(255, 232, 217, 0.04);
+  background: var(--dash-track-box-bg);
 }
 
 .track-box .track-id {
@@ -1044,7 +1215,7 @@
 
 .track-box small {
   display: block;
-  color: rgba(255, 232, 217, 0.5);
+  color: var(--dash-text-dimmer);
   font-family: var(--font-mono);
   font-size: 0.62rem;
   letter-spacing: 0.07em;
@@ -1054,13 +1225,13 @@
 .track-box strong {
   display: block;
   margin-top: 0.15rem;
-  color: var(--cream);
+  color: var(--dash-text-body);
   font-family: var(--font-mono);
   font-size: 0.76rem;
 }
 
 .track-box a {
-  color: rgba(255, 232, 217, 0.62);
+  color: var(--dash-text-track-link);
   font-size: 0.73rem;
   text-decoration: underline;
   text-underline-offset: 2px;
@@ -1068,7 +1239,7 @@
 
 .track-box a:hover,
 .track-box a:focus-visible {
-  color: var(--white);
+  color: var(--dash-text-primary);
 }
 
 .tabs-block {
@@ -1077,7 +1248,7 @@
 
 .tabs-label {
   margin: 0 0 0.7rem;
-  color: rgba(255, 232, 217, 0.5);
+  color: var(--dash-tabs-label);
   font-family: var(--font-mono);
   font-size: 0.64rem;
   letter-spacing: 0.08em;
@@ -1095,10 +1266,10 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.55rem 0.8rem;
-  border: 1px solid rgba(255, 232, 217, 0.12);
+  border: 1px solid var(--dash-border-mid);
   border-radius: 13px;
-  background: rgba(255, 232, 217, 0.06);
-  color: var(--cream);
+  background: var(--dash-tab-bg);
+  color: var(--dash-text-body);
   font-family: var(--font-mono);
   font-size: 0.71rem;
   font-weight: 700;
@@ -1107,8 +1278,8 @@
 .tab span {
   padding: 0.12rem 0.4rem;
   border-radius: 5px;
-  background: rgba(255, 232, 217, 0.12);
-  color: rgba(255, 232, 217, 0.62);
+  background: var(--dash-tab-badge-bg);
+  color: var(--dash-text-team-code);
   font-size: 0.56rem;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -1132,9 +1303,9 @@
   gap: 0.7rem;
   margin-top: 1.3rem;
   padding: 1rem;
-  border: 1px solid rgba(255, 232, 217, 0.12);
+  border: 1px solid var(--dash-border-mid);
   border-radius: 14px;
-  background: rgba(15, 11, 26, 0.45);
+  background: var(--dash-closed-box-bg);
 }
 
 .closed-box > img {
@@ -1146,14 +1317,14 @@
 
 .closed-box strong {
   display: block;
-  color: var(--cream);
+  color: var(--dash-text-body);
   font-family: var(--font-mono);
   font-size: 0.76rem;
 }
 
 .closed-box p {
   margin: 0.2rem 0 0;
-  color: rgba(255, 232, 217, 0.52);
+  color: var(--dash-text-faint);
   font-size: 0.72rem;
   line-height: 1.55;
 }
@@ -1169,10 +1340,7 @@
 @media (max-width: 900px) {
   .dash {
     grid-template-columns: minmax(0, 1fr);
-    background:
-      radial-gradient(circle at 82% 8%, rgba(134, 68, 162, 0.28), transparent 46%),
-      radial-gradient(circle at 12% 88%, rgba(255, 107, 107, 0.18), transparent 48%),
-      linear-gradient(180deg, #0b0c10 0%, #17122b 58%, #241c3c 100%);
+    background: var(--dash-bg-gradient-mobile);
   }
 
   .dash-aside {
@@ -1247,6 +1415,96 @@
   .dash-nav a,
   .btn-upload,
   .btn-save {
+    transition: none;
+  }
+}
+
+/* ——— Light mode body background ——— */
+[data-theme="light"] .dash-body {
+  background: #f4f1ff;
+}
+
+/* ——— Theme toggle button ——— */
+.dash-theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--dash-toggle-border);
+  border-radius: 10px;
+  background: var(--dash-toggle-bg);
+  color: var(--dash-toggle-text);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
+  text-align: left;
+}
+
+.dash-theme-toggle:hover,
+.dash-theme-toggle:focus-visible {
+  background: var(--dash-toggle-hover-bg);
+  color: var(--dash-text-primary);
+}
+
+.dash-theme-toggle:focus-visible {
+  outline: 2px solid var(--soft-violet);
+  outline-offset: 2px;
+}
+
+.dash-theme-toggle .toggle-icon {
+  font-size: 1rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* ——— Smooth theme transition ——— */
+html {
+  transition: background-color 220ms ease;
+}
+
+.dash,
+.dash-body,
+.dash-aside,
+.card,
+.metric,
+.upload-item,
+.proof,
+.guide-step,
+.file-row,
+.track-box,
+.closed-box,
+.lock-banner,
+.team-member,
+.dash-team,
+.input {
+  transition:
+    background 220ms ease,
+    border-color 220ms ease,
+    color 220ms ease,
+    box-shadow 220ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html,
+  .dash,
+  .dash-body,
+  .dash-aside,
+  .card,
+  .metric,
+  .upload-item,
+  .proof,
+  .guide-step,
+  .file-row,
+  .track-box,
+  .closed-box,
+  .lock-banner,
+  .team-member,
+  .dash-team,
+  .input,
+  .dash-theme-toggle {
     transition: none;
   }
 }
