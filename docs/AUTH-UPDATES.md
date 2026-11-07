@@ -25,9 +25,10 @@ Seluruh dokumen di `docs/`, urut dari yang paling awal:
 
 | Tanggal | Dokumen | Isi |
 |---|---|---|
-| **2026-10-21** | [`Infra.txt`](Infra.txt) | Diagram infrastruktur awal (router → reverse-proxy → dns/web/database) |
+| **2026-10-21** | [`Infra.txt`](Infra/Infra.txt) | Diagram infrastruktur awal (router → reverse-proxy → dns/web/database) |
 | **2026-10-21** | [`ASSESSMENT.md`](ASSESSMENT.md) | Asesmen baseline situs statis sebelum integrasi backend; kontrak API §5.1 |
 | **2026-10-21** | [`FRONTEND.md`](FRONTEND.md) | Dokumentasi tiap file frontend + aturan yang tidak boleh dilanggar agent |
+| **2026-11-05** | [`Infra/Infra.txt`](Infra/Infra.txt) & [`Infra/dns-server.txt`](Infra/dns-server.txt) | Infra diperluas: IP VM + catatan DNS server |
 | **2026-11-05** | [`AUTH-UPDATES.md`](AUTH-UPDATES.md) | *(dokumen ini)* — backend + auth: password policy baru, meter, captcha perkalian |
 
 Kontribusi baru harus menambah baris di tabel ini dan menandai tanggalnya.
