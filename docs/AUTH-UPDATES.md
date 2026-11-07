@@ -217,7 +217,7 @@ Browser                                Server
 ```
 
 - Soal **gagal termuat** → kotak jadi merah + pesan *"klik ikon ↻ untuk coba lagi"*
-- Jawaban **salah/kedaluwarsa** → soal **baru otomatis** dimuat, field jawaban di-reset
+- Setelah **setiap percobaan autentikasi gagal** (validasi/422, captcha salah, kredensial salah, lockout, rate limit, error server/jaringan), soal **baru otomatis dimuat** dan field jawaban dikosongkan (token lama tidak dipakai ulang).
 - Tombol ↻ = soal baru kapan saja (mis. user tidak bisa hitung soal ini)
 
 ---

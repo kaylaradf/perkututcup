@@ -1,4 +1,4 @@
-# Account Lockout & Popup Error Autentikasi
+# Account Lockout & Pelaporan Error Autentikasi
 
 > Bagian dari hardening autentikasi (lihat [`UPDATES.md`](UPDATES.md)).
 > Terakhir diperbarui: 2026-11-07.
@@ -10,7 +10,7 @@
 1. [Kebijakan Account Lockout](#kebijakan-account-lockout)
 2. [Cara Kerja Teknis](#cara-kerja-teknis)
 3. [Prosedur Admin: Unlock Akun](#prosedur-admin-unlock-akun)
-4. [Popup Error Autentikasi](#popup-error-autentikasi)
+4. [Pelaporan Error Autentikasi](#pelaporan-error-autentikasi)
 5. [Referensi API](#referensi-api)
 6. [Testing](#testing)
 
@@ -80,24 +80,24 @@ Kebijakan terkait: permintaan unlock datang melalui jalur yang sama dengan
 pengguna menghubungi admin; admin memverifikasi identitas di luar sistem
 sebelum menjalankan perintah di atas.
 
-## Popup Error Autentikasi
+## Pelaporan Error Autentikasi
 
-Semua error di form login & register kini ditampilkan sebagai **modal popup
-custom** (menggantikan pesan inline yang mudah terlewat):
+Pola pelaporan (diperbarui v2.4, `336e3ec` + perubahan kerja):
 
-- **Tema menyatu dengan situs**: kartu gelap `--card`, border violet
-  `--soft-violet`, teks `--cream`, judul coral `--sunset-coral`.
-- **Font sesuai token situs**: judul `Pixelify Sans` (`--font-display`),
-  isi `Inter` (`--font-body`).
-- **Judul adaptif**: error biasa → "Terjadi Kesalahan"; lockout → "Akun Dikunci".
-- **Interaksi tutup**: tombol ×, tombol "Mengerti", klik backdrop, atau `Escape`.
-- **Aksesibilitas**: `role="alertdialog"`, `aria-modal`, fokus pindah ke tombol
-  "Mengerti" saat muncul; animasi dimatikan bila `prefers-reduced-motion`.
+- **Inline (di bawah field):** kesalahan validasi field (`422`), email sudah terdaftar (`409`), dan CAPTCHA salah/kedaluwarsa (`400` dengan `detail.captcha`). Input bermasalah diberi status error dan fokus diarahkan seperlunya.
+- **Dialog modal:** kegagalan kredensial (`401`), akun terkunci/lockout (`423`), rate limit (`429`), serta kesalahan server/jaringan umum.
 
-Implementasi: `script.js` (`showAuthError` / `ensureAuthModal` — modal dibuat
-sekali dan dipakai ulang) + blok `.auth-modal-*` di `styles.css`.
-Pesan teks tetap berasal dari server (field `detail`), sehingga perubahan
-pesan tidak perlu sentuh frontend.
+Dialog modal:
+
+- **Tema:** kartu `--card`, border violet `--soft-violet`, teks `--cream`, judul coral `--sunset-coral`.
+- **Font:** judul `Pixelify Sans` (`--font-display`), isi `Inter` (`--font-body`).
+- **Judul adaptif:** error biasa → "Terjadi Kesalahan"; lockout → "Akun Dikunci".
+- **Interaksi tutup:** tombol ×, tombol "Mengerti", klik backdrop, atau `Escape`.
+- **Aksesibilitas:** `role="alertdialog"`, `aria-modal`, fokus pindah ke tombol "Mengerti" saat muncul; animasi dimatikan bila `prefers-reduced-motion`.
+
+**CAPTCHA:** setelah setiap percobaan autentikasi yang gagal, soal CAPTCHA dimuat ulang dan jawaban dikosongkan agar token/soal lama tidak dipakai ulang.
+
+Implementasi: `script.js` (validasi inline, `loadCaptcha`/refresh setelah gagal, `showAuthError`/`ensureAuthModal`) dan `.auth-field-*` / `.auth-modal-*` di `styles.css`. Pesan tetap berasal dari server (`detail`).
 
 ## Referensi API
 
@@ -106,7 +106,7 @@ pesan tidak perlu sentuh frontend.
 | 200 | Login sukses | `{user: {...}}` |
 | 401 | Email tidak terdaftar / password salah (belum lockout) | `"Email atau kata sandi salah"` |
 | **423** | **Akun terkunci** | `{"lockout": "Akun dikunci ... Hubungi admin ..."}` |
-| 400 | Captcha salah/kedaluwarsa | `{"captcha": "..."}` |
+| 400 | Captcha salah/kedaluwarsa | `{"captcha": "..."}` — ditampilkan inline (v2.4) |
 | 429 | Rate limit | `"Terlalu banyak percobaan. ..."` |
 
 Urutan pemeriksaan login: **rate limit → captcha → lockout → password**.
