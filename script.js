@@ -19,7 +19,7 @@
       <div class="auth-dialog-card">
         <button class="auth-dialog-close" type="button" data-auth-dialog-close aria-label="Tutup">&times;</button>
         <h3 class="auth-dialog-title" id="auth-dialog-title">
-          <img src="assets/svg/icon-alert.svg" alt="" width="20" height="20" onerror="this.style.display='none'" />
+          <img src="/assets/svg/icon-alert.svg" alt="" width="20" height="20" onerror="this.style.display='none'" />
           <span data-auth-dialog-title-text>Terjadi Kesalahan</span>
         </h3>
         <p class="auth-dialog-text" id="auth-dialog-text" data-auth-dialog-text></p>
