@@ -7,6 +7,7 @@
 
 ## Daftar Isi
 
+0. [Linetime Dokumentasi (urut tanggal)](#linetime-dokumentasi-urut-tanggal)
 1. [Ringkasan Cepat](#ringkasan-cepat)
 2. [Kebijakan Password Baru](#kebijakan-password-baru)
 3. [Password Strength Meter (Floating Window)](#password-strength-meter)
@@ -15,6 +16,21 @@
 6. [Riwayat Commit](#riwayat-commit)
 7. [Referensi API](#referensi-api)
 8. [FAQ / Troubleshooting](#faq--troubleshooting)
+
+---
+
+## Linetime Dokumentasi (urut tanggal)
+
+Seluruh dokumen di `docs/`, urut dari yang paling awal:
+
+| Tanggal | Dokumen | Isi |
+|---|---|---|
+| **2026-10-21** | [`Infra.txt`](Infra.txt) | Diagram infrastruktur awal (router → reverse-proxy → dns/web/database) |
+| **2026-10-21** | [`ASSESSMENT.md`](ASSESSMENT.md) | Asesmen baseline situs statis sebelum integrasi backend; kontrak API §5.1 |
+| **2026-10-21** | [`FRONTEND.md`](FRONTEND.md) | Dokumentasi tiap file frontend + aturan yang tidak boleh dilanggar agent |
+| **2026-11-05** | [`AUTH-UPDATES.md`](AUTH-UPDATES.md) | *(dokumen ini)* — backend + auth: password policy baru, meter, captcha perkalian |
+
+Kontribusi baru harus menambah baris di tabel ini dan menandai tanggalnya.
 
 ---
 
