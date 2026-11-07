@@ -5,3 +5,4 @@ bcrypt
 pydantic-settings
 email-validator
 altcha-zxcvbn
+slowapi

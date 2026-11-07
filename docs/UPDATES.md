@@ -18,6 +18,7 @@ di sini — lihat `git log` untuk riwayat lengkap.
 | v1.1 | 2026-10-21 | Dokumentasi frontend & diagram infrastruktur | [`docs/FRONTEND.md`](docs/FRONTEND.md) · [`docs/Infra/`](docs/Infra/) | `5d2520f`, `f75ef73` |
 | v2.0 | 2026-11-05 | Backend autentikasi: PostgreSQL, session, guard dashboard, integrasi API | [`docs/AUTH-UPDATES.md`](docs/AUTH-UPDATES.md) | `1daf95a`..`e9b5ffd` |
 | v2.1 | 2026-11-05 | Hardening auth: kebijakan password NIST-style, password meter, CAPTCHA perkalian | [`docs/AUTH-UPDATES.md`](docs/AUTH-UPDATES.md) | `b15cf6b`..`826319b` |
+| v2.2 | 2026-11-05 | Hardening input: whitelist kolom UPDATE & rate limiting anti brute-force | [`docs/RATE-LIMITING.md`](docs/RATE-LIMITING.md) | `7440b2c`, `2770d0e` |
 
 ## Detail
 
@@ -42,3 +43,14 @@ Detail lengkap di [`docs/AUTH-UPDATES.md`](docs/AUTH-UPDATES.md).
 - Password strength meter interaktif pada form pendaftaran.
 - CAPTCHA perkalian (HMAC-signed, stateless) pada login & register.
 - Alur pemulihan kata sandi melalui admin.
+
+### v2.2 — Hardening Input & Rate Limiting (2026-11-05)
+
+Penguatan permukaan input terhadap CWE-89/CWE-20 dan brute-force.
+Commit: `7440b2c`, `2770d0e`. Detail lengkap di [`docs/RATE-LIMITING.md`](docs/RATE-LIMITING.md).
+
+- Whitelist eksplisit kolom pada `PATCH /api/me` (defense-in-depth di atas
+  prepared statement psycopg yang sudah dipakai di seluruh query).
+- Rate limiting per IP via slowapi: captcha 10/menit, register 5/menit,
+  login 10/menit; pelanggaran → 429 + header `Retry-After`.
+- Petunjuk migrasi ke storage Redis untuk skala multi-worker.
