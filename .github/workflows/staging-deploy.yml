@@ -1,0 +1,102 @@
+name: Deploy staging
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [staging]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate staging configuration
+        env:
+          TS_AUTHKEY: ${{ secrets.TS_AUTHKEY }}
+          STAGING_SSH_PRIVATE_KEY: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
+          STAGING_HOST: ${{ secrets.STAGING_HOST }}
+          STAGING_USER: ${{ secrets.STAGING_USER }}
+          STAGING_DEPLOY_DIR: ${{ secrets.STAGING_DEPLOY_DIR }}
+          STAGING_SERVICE: ${{ secrets.STAGING_SERVICE }}
+          STAGING_HEALTH_URL: ${{ secrets.STAGING_HEALTH_URL }}
+        run: |
+          set -euo pipefail
+          for name in TS_AUTHKEY STAGING_SSH_PRIVATE_KEY STAGING_HOST STAGING_USER STAGING_DEPLOY_DIR STAGING_SERVICE STAGING_HEALTH_URL; do
+            if [[ -z "${!name}" ]]; then echo "Missing required Actions secret: $name" >&2; exit 1; fi
+          done
+
+      - uses: tailscale/github-action@v3
+        with:
+          authkey: ${{ secrets.TS_AUTHKEY }}
+          tags: tag:ci
+
+      - name: Configure SSH and package source
+        env:
+          SSH_KEY: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
+          STAGING_HOST: ${{ secrets.STAGING_HOST }}
+          STAGING_USER: ${{ secrets.STAGING_USER }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/staging_key
+          chmod 600 ~/.ssh/staging_key
+          ssh-keyscan -H "$STAGING_HOST" >> ~/.ssh/known_hosts
+          git archive --format=tar.gz --output=staging.tar.gz HEAD
+          scp -i ~/.ssh/staging_key staging.tar.gz "$STAGING_USER@$STAGING_HOST:/tmp/perkutut-staging-${GITHUB_SHA}.tar.gz"
+
+      - name: Deploy, health-check, and rollback on failure
+        env:
+          STAGING_HOST: ${{ secrets.STAGING_HOST }}
+          STAGING_USER: ${{ secrets.STAGING_USER }}
+          STAGING_DEPLOY_DIR: ${{ secrets.STAGING_DEPLOY_DIR }}
+          STAGING_SERVICE: ${{ secrets.STAGING_SERVICE }}
+          STAGING_HEALTH_URL: ${{ secrets.STAGING_HEALTH_URL }}
+        run: |
+          set -euo pipefail
+          printf -v remote_args '%q ' "$STAGING_DEPLOY_DIR" "$STAGING_SERVICE" "$STAGING_HEALTH_URL" "$GITHUB_SHA"
+          ssh -i ~/.ssh/staging_key "$STAGING_USER@$STAGING_HOST" "bash -s -- $remote_args" <<'REMOTE'
+          set -euo pipefail
+          deploy_dir=$1 service=$2 health_url=$3 revision=$4
+          archive="/tmp/perkutut-staging-${revision}.tar.gz"
+          releases="$deploy_dir/releases"
+          current="$deploy_dir/current"
+          release="$releases/$revision"
+          previous=""
+
+          # All configuration and connectivity checks happen before remote changes.
+          test -f "$archive"
+          test -n "$service" && test -n "$health_url"
+          command -v systemctl >/dev/null
+          command -v curl >/dev/null
+          mkdir -p "$releases"
+          if [[ -L "$current" ]]; then previous=$(readlink -f "$current"); fi
+          mkdir "$release"
+          tar -xzf "$archive" -C "$release"
+          ln -sfn "$release" "$deploy_dir/current.next"
+          mv -Tf "$deploy_dir/current.next" "$current"
+
+          rollback() {
+            if [[ -n "$previous" && -d "$previous" ]]; then
+              ln -sfn "$previous" "$deploy_dir/current.rollback"
+              mv -Tf "$deploy_dir/current.rollback" "$current"
+              sudo systemctl restart "$service" || true
+            fi
+          }
+          if ! sudo systemctl restart "$service"; then rollback; exit 1; fi
+          ok=0
+          for attempt in {1..12}; do
+            if curl --fail --silent --show-error --max-time 5 "$health_url" >/dev/null; then ok=1; break; fi
+            sleep 5
+          done
+          if [[ "$ok" != 1 ]]; then rollback; exit 1; fi
+          rm -f "$archive"
+          REMOTE

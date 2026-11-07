@@ -37,23 +37,25 @@
       <p class="auth-subtitle">Masuk untuk melanjutkan ke Perkutut Cup 2026.</p>
 
       <form class="auth-form" data-auth-form="sign-in" novalidate>
-        <label class="auth-field">
-          <span>Email atau Username</span>
+        <label class="auth-field" for="sign-in-email">
+          <span>Email</span>
           <span class="auth-control">
             <img class="auth-field-icon" src="../assets/svg/icon-mail.svg" width="14" height="14" alt="" />
-            <input name="email" type="text" autocomplete="username" placeholder="Masukkan email atau username" data-allowlist="identifier" maxlength="254" required />
+            <input id="sign-in-email" name="email" type="email" autocomplete="email" placeholder="Masukkan alamat email" data-allowlist="email" maxlength="254" required aria-describedby="sign-in-email-error" />
           </span>
+          <span class="auth-field-error" id="sign-in-email-error" data-field-error="email" role="alert" aria-live="polite"></span>
         </label>
 
-        <label class="auth-field">
+        <label class="auth-field" for="sign-in-password">
           <span>Kata Sandi</span>
           <span class="auth-control">
             <img class="auth-field-icon" src="../assets/svg/icon-lock.svg" width="14" height="14" alt="" />
-            <input name="password" type="password" autocomplete="current-password" placeholder="Masukkan kata sandi" data-allowlist="" maxlength="64" required />
+            <input id="sign-in-password" name="password" type="password" autocomplete="current-password" placeholder="Masukkan kata sandi" data-allowlist="" maxlength="64" required aria-describedby="sign-in-password-error" />
             <button class="auth-password-toggle" type="button" data-password-toggle aria-label="Tampilkan kata sandi" aria-pressed="false">
               <img src="../assets/svg/icon-eye.svg" width="14" height="14" alt="" />
             </button>
           </span>
+          <span class="auth-field-error" id="sign-in-password-error" data-field-error="password" role="alert" aria-live="polite"></span>
         </label>
 
         <a class="auth-forgot" href="#forgot-password" data-forgot-password>Lupa kata sandi?</a>
@@ -61,11 +63,12 @@
         <div class="auth-field auth-field--captcha" data-captcha>
           <span class="captcha-question" data-captcha-question>Memuat soal verifikasi…</span>
           <span class="auth-control">
-            <input name="captchaAnswer" type="text" inputmode="numeric" autocomplete="off" placeholder="Jawaban" data-allowlist="digits" aria-label="Jawaban verifikasi" maxlength="4" required />
+            <input id="sign-in-captcha" name="captchaAnswer" type="text" inputmode="numeric" autocomplete="off" placeholder="Jawaban" data-allowlist="digits" aria-label="Jawaban verifikasi" maxlength="4" required aria-describedby="sign-in-captcha-error" />
             <button class="auth-captcha-refresh" type="button" data-captcha-refresh aria-label="Ganti soal">
               <img src="../assets/svg/icon-refresh.svg" width="14" height="14" alt="" />
             </button>
           </span>
+          <span class="auth-field-error" id="sign-in-captcha-error" data-field-error="captchaAnswer" role="alert" aria-live="polite"></span>
         </div>
 
         <button class="auth-submit" type="submit">Masuk</button>

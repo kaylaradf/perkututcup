@@ -23,10 +23,16 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 
 DB_DSN = os.environ["PERKUTUT_DATABASE_URL"]  # fail fast jika env var tidak diset
 SESSION_TTL_HOURS = 24
-MAX_FAILED_LOGINS = 5  # account lockout: 5x salah sandi -> akun terkunci, hubungi admin
+MAX_FAILED_LOGINS = 5  # Lock the account after five incorrect passwords.
 COOKIE_SECURE = os.environ.get("PERKUTUT_COOKIE_SECURE", "0") == "1"  # set 1 saat di-deploy di belakang HTTPS
 
 app = FastAPI(title="Perkutut Cup 2026 API", version="0.1.0")
+
+
+@app.get("/health", include_in_schema=False)
+def health():
+    """Lightweight process liveness check for staging deployments."""
+    return {"status": "ok"}
 
 # ------------------------------------------------------------------ rate limit
 #
@@ -52,56 +58,40 @@ def rate_limit_handler(request: Request, exc: RateLimitExceeded):
     )
 
 
-# ---------------------------------------------------------------- schema
-
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS users (
-    id            BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    full_name     TEXT NOT NULL,
-    email         TEXT NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL,
-    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-    failed_login_count  INT NOT NULL DEFAULT 0,
-    locked_at           TIMESTAMPTZ
-);
-ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_login_count INT NOT NULL DEFAULT 0;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_at TIMESTAMPTZ;
-CREATE TABLE IF NOT EXISTS sessions (
-    id         TEXT PRIMARY KEY,
-    user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    expires_at TIMESTAMPTZ NOT NULL
-);
-CREATE INDEX IF NOT EXISTS sessions_user_idx ON sessions(user_id);
-ALTER TABLE users ADD COLUMN IF NOT EXISTS institution TEXT;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS birth_date DATE;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS instagram_handle TEXT;
-CREATE TABLE IF NOT EXISTS teams (
-    id            BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    code          TEXT NOT NULL UNIQUE,
-    track         TEXT NOT NULL DEFAULT 'KRIPTOGRAFI',
-    leader_user_id BIGINT REFERENCES users(id),
-    payment_status TEXT NOT NULL DEFAULT 'PENDING',
-    created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-CREATE TABLE IF NOT EXISTS team_members (
-    team_id  BIGINT NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-    user_id  BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    role     TEXT NOT NULL DEFAULT 'member',
-    PRIMARY KEY (team_id, user_id)
-);
-"""
-
-
 def db() -> psycopg.Connection:
     return psycopg.connect(DB_DSN, row_factory=dict_row)
 
 
 @app.on_event("startup")
 def init_db():
+    migrations_dir = Path(__file__).with_name("migrations")
+    migrations = sorted(migrations_dir.glob("[0-9][0-9][0-9][0-9]_*.sql"))
     with db() as conn:
-        conn.execute(SCHEMA)
+        # Keep migration discovery/application serialized when multiple workers
+        # start against the same database at once.
+        with conn.transaction():
+            conn.execute("SELECT pg_advisory_xact_lock(%s)", (741928316,))
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS schema_migrations (
+                    version TEXT PRIMARY KEY,
+                    applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                )
+                """
+            )
+            applied = {
+                row["version"]
+                for row in conn.execute("SELECT version FROM schema_migrations").fetchall()
+            }
+            for migration in migrations:
+                version = migration.stem
+                if version in applied:
+                    continue
+                conn.execute(migration.read_text(encoding="utf-8"))
+                conn.execute(
+                    "INSERT INTO schema_migrations (version) VALUES (%s)",
+                    (version,),
+                )
 
 
 # ------------------------------------------------------- password policy
@@ -311,33 +301,27 @@ def login(request: Request, payload: LoginIn, response: Response):
             "SELECT id, full_name, email, password_hash, failed_login_count, locked_at FROM users WHERE email = %s",
             (payload.email.lower(),),
         ).fetchone()
-
         if row is None:
             raise HTTPException(status_code=401, detail="Email atau kata sandi salah")
-
-        # Account lockout: 5 kegagalan -> akun terkunci, hanya admin yang bisa buka
         if row["locked_at"] is not None:
             raise HTTPException(
                 status_code=423,
                 detail={"lockout": "Akun dikunci karena terlalu banyak percobaan gagal. Hubungi admin untuk membuka kembali."},
             )
-
         if not verify_password(payload.password, row["password_hash"]):
             failed = row["failed_login_count"] + 1
             conn.execute(
                 "UPDATE users SET failed_login_count = %s, locked_at = CASE WHEN %s >= %s THEN now() ELSE locked_at END WHERE id = %s",
                 (failed, failed, MAX_FAILED_LOGINS, row["id"]),
             )
-            conn.commit()  # catat kegagalan sebelum raise (with db() akan rollback jika exception lolos)
+            conn.commit()  # Persist the failure count before raising the HTTP error.
             if failed >= MAX_FAILED_LOGINS:
                 raise HTTPException(
                     status_code=423,
                     detail={"lockout": f"Akun dikunci setelah {MAX_FAILED_LOGINS} kali salah kata sandi. Hubungi admin untuk membuka kembali."},
                 )
             raise HTTPException(status_code=401, detail="Email atau kata sandi salah")
-
-        # login sukses: reset counter lockout
-        if row["failed_login_count"] > 0 or row["locked_at"] is not None:
+        if row["failed_login_count"] > 0:
             conn.execute(
                 "UPDATE users SET failed_login_count = 0, locked_at = NULL WHERE id = %s",
                 (row["id"],),
