@@ -27,6 +27,30 @@ COOKIE_SECURE = os.environ.get("PERKUTUT_COOKIE_SECURE", "0") == "1"  # set 1 sa
 
 app = FastAPI(title="Perkutut Cup 2026 API", version="0.1.0")
 
+# ------------------------------------------------------------------ rate limit
+#
+# Anti brute-force: batasi percobaan auth per IP.
+#  - captcha & login: 10 permintaan / menit / IP
+#  - register: 5 permintaan / menit / IP
+# Backend in-memory (cukup untuk satu proses uvicorn); ganti redis:// bila
+# nanti dijalankan multi-worker.
+from slowapi import Limiter
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
+
+limiter = Limiter(key_func=get_remote_address)  # X-Forwarded-For dipakai otomatis bila ada proxy
+app.state.limiter = limiter
+
+
+@app.exception_handler(RateLimitExceeded)
+def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    return JSONResponse(
+        status_code=429,
+        content={"detail": "Terlalu banyak percobaan. Coba lagi sebentar lagi."},
+        headers={"Retry-After": str(getattr(exc, "retry_after", 60))},
+    )
+
+
 # ---------------------------------------------------------------- schema
 
 SCHEMA = """
@@ -248,13 +272,15 @@ def require_user(request: Request):
 
 
 @app.get("/api/auth/captcha")
-def captcha():
+@limiter.limit("10/minute")
+def captcha(request: Request):
     """Soal perkalian acak untuk bot prevention (stateless, HMAC-signed)."""
     return captcha_create()
 
 
 @app.post("/api/auth/register", status_code=201)
-def register(payload: RegisterIn, response: Response):
+@limiter.limit("5/minute")
+def register(request: Request, payload: RegisterIn, response: Response):
     require_captcha(payload)
     if payload.password != payload.confirm_password:
         raise HTTPException(status_code=422, detail={"confirm_password": ["Kata sandi belum sama"]})
@@ -272,7 +298,8 @@ def register(payload: RegisterIn, response: Response):
 
 
 @app.post("/api/auth/login")
-def login(payload: LoginIn, response: Response):
+@limiter.limit("10/minute")
+def login(request: Request, payload: LoginIn, response: Response):
     require_captcha(payload)
     with db() as conn:
         row = conn.execute(
