@@ -117,8 +117,17 @@
     else if (match(window.location.pathname)) Router.navigate(window.location.pathname, { replace: true, force: true });
   }
 
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
-  else boot();
+  // All shell scripts are <script defer>, which run in document order
+  // BEFORE DOMContentLoaded. If we boot here (readyState already
+  // "interactive"), the sibling page modules haven't registered their
+  // routes yet and the initial view stays blank. So only boot
+  // immediately when readyState is already "complete"; otherwise wait
+  // for DOMContentLoaded, which fires after every defer module has run.
+  if (document.readyState === "complete") {
+    boot();
+  } else {
+    document.addEventListener("DOMContentLoaded", boot);
+  }
 
   window.Router = Router;
 })();
