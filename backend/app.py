@@ -1706,6 +1706,11 @@ app.mount("/assets", StaticFiles(directory=FRONTEND_DIR / "assets"), name="asset
 def serve_static(page_path: str, request: Request):
     """Sajikan frontend statis dari origin yang sama (cookie butuh same-origin)."""
     # Guard server-side untuk dashboard: tanpa session -> 404.html
+    # NOTE: /dashboard, /dashboard/profile(/), /dashboard/submission(/),
+    # /dashboard/competitions(/) and /dashboard/users(/) are served by the
+    # explicit shell routes above. Anything else under dashboard/ has no
+    # static page anymore (the legacy index.html files were removed once the
+    # SPA shell took over), so just return 404.
     if page_path.startswith("dashboard") or page_path == "dashboard":
         u = current_user(request)
         if u is None:
@@ -1713,10 +1718,8 @@ def serve_static(page_path: str, request: Request):
         elif page_path.startswith("dashboard/competitions") or page_path == "dashboard/competitions":
             if u.get("role") != "admin":
                 page_path = "404.html"
-            elif page_path in ("dashboard/competitions", "dashboard/competitions/"):
-                page_path = "dashboard/competitions/index.html"
         elif page_path in ("dashboard", "dashboard/"):
-            page_path = "dashboard/profile/index.html"
+            page_path = "404.html"
 
     # Halaman auth: yang sudah punya session langsung dilempar ke dashboard
     if page_path in ("sign-in", "sign-in/", "join", "join/"):
