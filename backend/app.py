@@ -18,7 +18,7 @@ import bcrypt
 import psycopg
 from psycopg.rows import dict_row
 from fastapi import FastAPI, HTTPException, Request, Response
-from fastapi.responses import JSONResponse, FileResponse, RedirectResponse
+from fastapi.responses import JSONResponse, FileResponse, RedirectResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
