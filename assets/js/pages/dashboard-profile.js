@@ -99,14 +99,14 @@
 '            <a class="field-link" href="https://instagram.com/" target="_blank" rel="noopener noreferrer">Follow @perkututcup</a>' +
 '            <span class="form-divider"></span>' +
 '            <div class="upload-head">' +
-'              <h3>DOCUMENT UPLOADS</h3>' +
+'              <h3>DOCUMENT UPLOADS (IDENTITAS PESERTA)</h3>' +
 '              <div class="upload-list">' +
-'                <article class="upload-item"><span class="upload-info"><img class="upload-thumb" src="/assets/images/dashboard/student-id.jpg" width="45" height="45" alt="Kartu mahasiswa" /><span class="upload-copy"><h4>STUDENT ID / ENROLLMENT VERIFICATION</h4><p>Uploaded successfully <a href="#profile-form" data-view-upload>Click to view</a></p></span></span><button class="btn-upload" type="button" data-upload="studentId">UPLOAD</button></article>' +
-'                <article class="upload-item"><span class="upload-info"><img class="upload-thumb" src="/assets/images/dashboard/formal-photo.jpg" width="45" height="45" alt="Foto formal" /><span class="upload-copy"><h4>FORMAL PHOTO</h4><p>Uploaded successfully <a href="#profile-form" data-view-upload>Click to view</a></p></span></span><button class="btn-upload" type="button" data-upload="formalPhoto">UPLOAD</button></article>' +
-'                <article class="upload-item"><span class="upload-info"><img class="upload-thumb" src="/assets/images/dashboard/twibbon.jpg" width="45" height="45" alt="Twibbon" /><span class="upload-copy"><h4>TWIBBON FEEDS SCREENSHOT</h4><p>Uploaded successfully <a href="#profile-form" data-view-upload>Click to view</a></p><a class="upload-twibbon-link" href="/#home">Download the Twibbon here</a><p class="upload-hint">*Upload a screenshot of your posted twibbon on your public Instagram feeds<br />*Please keep your twibbon post until the competition ends</p></span></span><button class="btn-upload" type="button" data-upload="twibbon">UPLOAD</button></article>' +
-'                <article class="upload-item"><span class="upload-info"><img class="upload-thumb" src="/assets/images/dashboard/instagram.jpg" width="45" height="45" alt="Screenshot follow Instagram" /><span class="upload-copy"><h4>FOLLOW INSTAGRAM @PERKUTUTCUP</h4><p>Uploaded successfully <a href="#profile-form" data-view-upload>Click to view</a></p></span></span><button class="btn-upload" type="button" data-upload="followInstagram">UPLOAD</button></article>' +
+'                <article class="upload-item" data-doc-container="ktm"><span class="upload-info"><img class="upload-thumb" src="/assets/images/dashboard/student-id.jpg" width="45" height="45" alt="Kartu mahasiswa" /><span class="upload-copy"><h4>STUDENT ID / KARTU MAHASISWA</h4><p data-doc-desc>Memuat status… <a href="#profile-form" data-view-upload hidden>(Lihat Berkas)</a></p></span></span><button class="btn-upload" type="button" data-upload-btn="ktm">UPLOAD</button></article>' +
+'                <article class="upload-item" data-doc-container="pasfoto"><span class="upload-info"><img class="upload-thumb" src="/assets/images/dashboard/formal-photo.jpg" width="45" height="45" alt="Foto formal" /><span class="upload-copy"><h4>FORMAL PHOTO / PASFOTO</h4><p data-doc-desc>Memuat status… <a href="#profile-form" data-view-upload hidden>(Lihat Berkas)</a></p></span></span><button class="btn-upload" type="button" data-upload-btn="pasfoto">UPLOAD</button></article>' +
+'                <article class="upload-item" data-doc-container="twibbon"><span class="upload-info"><img class="upload-thumb" src="/assets/images/dashboard/twibbon.jpg" width="45" height="45" alt="Twibbon" /><span class="upload-copy"><h4>TWIBBON FEEDS SCREENSHOT</h4><p data-doc-desc>Memuat status… <a href="#profile-form" data-view-upload hidden>(Lihat Berkas)</a></p><a class="upload-twibbon-link" href="/#home">Download the Twibbon here</a><p class="upload-hint">*Upload tangkapan layar postingan twibbon di feed Instagram publik Anda</p></span></span><button class="btn-upload" type="button" data-upload-btn="twibbon">UPLOAD</button></article>' +
 '              </div>' +
 '            </div>' +
+'            <input type="file" id="dash-file-picker" style="display:none;" accept=".jpg,.jpeg,.png,.webp,.pdf" />' +
 '            <button class="btn-save" type="submit">SAVE CHANGES</button>' +
 '            <p class="dash-status" data-dash-status role="status" aria-live="polite"></p>' +
 '          </form>' +
@@ -124,7 +124,7 @@
 '          <div class="team-manage-box" data-add-member-section hidden style="margin-top:1.2rem; padding:1rem; border-radius:12px; border:1px solid var(--dash-border-mid); background:rgba(255,232,217,0.03);"><h4 style="margin:0 0 0.4rem; font-size:0.75rem; font-family:var(--font-mono); color:var(--soft-violet);">TAMBAH ANGGOTA TIM</h4><p class="proof-hint" style="margin-bottom:0.8rem;">Undang anggota menggunakan email akun Perkutut Cup mereka:</p><form data-add-member-form style="display:flex; gap:0.6rem; flex-wrap:wrap;"><input class="input" type="email" name="memberEmail" placeholder="email.anggota@example.com" required style="flex:1; min-width:200px;" /><button class="btn-save" type="submit" style="padding:0.5rem 1rem; font-size:0.72rem;">TAMBAH</button></form><p class="dash-status" data-add-member-status role="status" aria-live="polite" style="margin-top:0.5rem;"></p></div>' +
 '          <div class="team-manage-box" data-join-team-section style="margin-top:1.2rem; padding:1rem; border-radius:12px; border:1px solid var(--dash-border-mid); background:rgba(255,232,217,0.03);"><h4 style="margin:0 0 0.4rem; font-size:0.75rem; font-family:var(--font-mono); color:var(--soft-violet);">GABUNG TIM DENGAN KODE</h4><p class="proof-hint" style="margin-bottom:0.8rem;">Punya kode tim dari teman? Masukkan kode untuk bergabung ke tim teman:</p><form data-join-team-form style="display:flex; gap:0.6rem; flex-wrap:wrap;"><input class="input" type="text" name="teamCode" placeholder="PC26-XXXX" required style="flex:1; min-width:180px; text-transform:uppercase;" /><button class="btn-save" type="submit" style="padding:0.5rem 1rem; font-size:0.72rem;">GABUNG</button></form><p class="dash-status" data-join-team-status role="status" aria-live="polite" style="margin-top:0.5rem;"></p></div>' +
 '          <div class="team-manage-box" data-leave-team-section hidden style="margin-top:1.2rem; text-align:right;"><button class="btn-upload" type="button" data-leave-team-btn style="color:#e74c3c; border-color:rgba(231,76,60,0.3);">KELUAR DARI TIM</button><p class="dash-status" data-leave-team-status role="status" aria-live="polite" style="margin-top:0.4rem;"></p></div>' +
-'          <div class="proof-block"><h3>TEAM PAYMENT PROOF</h3><article class="proof"><span class="proof-icon"><img src="/assets/svg/dashboard/icon-file-lock.svg" width="23" height="23" alt="" /></span><div><h4>PAYMENT RECEIPT</h4><p>Uploaded successfully <a href="#profile-form" data-view-upload>(Click to view)</a></p><p class="proof-hint">Bilang hi! ke kontak ini supaya di-acc : +62 8123 4567 893</p></div></article></div>' +
+'          <div class="proof-block" data-doc-container="payment_proof"><h3>TEAM PAYMENT PROOF</h3><article class="proof"><span class="proof-icon"><img src="/assets/svg/dashboard/icon-file-lock.svg" width="23" height="23" alt="" /></span><div style="flex:1;"><h4>PAYMENT RECEIPT (BUKTI PEMBAYARAN)</h4><p data-doc-desc>Memuat status… <a href="#profile-form" data-view-upload hidden>(Lihat Bukti)</a></p><p class="proof-hint">Unggah bukti transfer biaya pendaftaran tim. Format: JPG, PNG, PDF (maks 10MB).</p></div><button class="btn-upload" type="button" data-upload-btn="payment_proof">UPLOAD</button></article></div>' +
 '        </section>' +
 '      </div>' +
 '    </main>';
@@ -319,11 +319,111 @@
     };
 
     var reloadTeam = function () {
+      loadDocuments();
       return fetch('/api/team', { credentials: 'same-origin' })
         .then(function (res) { return res.ok ? res.json() : null; })
         .then(function (data) { if (data) renderTeam(data.team, currentProfileUser); })
         .catch(function () {});
     };
+
+    var filePicker = container.querySelector('#dash-file-picker');
+    var targetDocType = null;
+
+    function loadDocuments() {
+      fetch('/api/documents', { credentials: 'same-origin', signal: signal })
+        .then(function (res) { return res.ok ? res.json() : null; })
+        .then(function (data) {
+          if (!data) return;
+          var regStatusEl = container.querySelector('[data-registration-status]');
+          if (regStatusEl) {
+            if (data.verification_status === 'VERIFIED') {
+              regStatusEl.textContent = 'TERVERIFIKASI ✓';
+              regStatusEl.style.color = '#2ecc71';
+            } else {
+              regStatusEl.textContent = 'BELUM TERVERIFIKASI';
+              regStatusEl.style.color = '#f1c40f';
+            }
+          }
+
+          var docMap = {};
+          (data.documents || []).forEach(function (d) {
+            if (d.document_type === 'payment_proof' || (currentProfileUser && d.user_id === currentProfileUser.id)) {
+              docMap[d.document_type] = d;
+            }
+          });
+
+          ['ktm', 'pasfoto', 'twibbon', 'payment_proof'].forEach(function (dtype) {
+            var box = container.querySelector('[data-doc-container="' + dtype + '"]');
+            if (!box) return;
+            var desc = box.querySelector('[data-doc-desc]');
+            var btn = box.querySelector('[data-upload-btn="' + dtype + '"]');
+            var doc = docMap[dtype];
+
+            if (!doc) {
+              if (desc) desc.innerHTML = '<span style="color:var(--dash-text-muted);">Belum diunggah</span>';
+              if (btn) { btn.textContent = 'UPLOAD'; btn.disabled = (dtype === 'payment_proof' && data.caller_role !== 'leader'); }
+            } else if (doc.status === 'APPROVED') {
+              if (desc) desc.innerHTML = '<span style="color:#2ecc71; font-weight:700;">✓ Disetujui Admin</span> • <a href="' + doc.download_url + '" target="_blank" style="color:var(--soft-violet); font-size:0.75rem;">(Lihat)</a>';
+              if (btn) { btn.textContent = 'Ganti File'; btn.disabled = false; }
+            } else if (doc.status === 'REJECTED') {
+              var fb = doc.feedback ? ': ' + escapeHtml(doc.feedback) : '';
+              if (desc) desc.innerHTML = '<span style="color:#ff6b6b; font-weight:700;">✗ Ditolak' + fb + '</span>';
+              if (btn) { btn.textContent = 'UNGGAH ULANG'; btn.disabled = false; }
+            } else {
+              if (desc) desc.innerHTML = '<span style="color:#f1c40f; font-weight:700;">⏳ Menunggu Verifikasi Admin</span> • <a href="' + doc.download_url + '" target="_blank" style="color:var(--soft-violet); font-size:0.75rem;">(Lihat)</a>';
+              if (btn) { btn.textContent = 'Ganti File'; btn.disabled = false; }
+            }
+          });
+        })
+        .catch(function () {});
+    }
+
+    if (filePicker) {
+      container.querySelectorAll('[data-upload-btn]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          targetDocType = btn.getAttribute('data-upload-btn');
+          filePicker.value = '';
+          filePicker.click();
+        }, { signal: signal });
+      });
+
+      filePicker.addEventListener('change', function () {
+        if (!filePicker.files || !filePicker.files[0] || !targetDocType) return;
+        var file = filePicker.files[0];
+        if (file.size > 10 * 1024 * 1024) {
+          window.alert('Ukuran file maksimal 10MB.');
+          return;
+        }
+        var btn = container.querySelector('[data-upload-btn="' + targetDocType + '"]');
+        if (btn) { btn.disabled = true; btn.textContent = 'Mengunggah…'; }
+
+        var fd = new FormData();
+        fd.append('document_type', targetDocType);
+        fd.append('file', file);
+
+        fetch('/api/documents/upload', {
+          method: 'POST',
+          body: fd,
+          credentials: 'same-origin'
+        })
+          .then(function (res) { return res.json().then(function (d) { return { ok: res.ok, data: d }; }); })
+          .then(function (r) {
+            if (r.ok) {
+              window.alert('Dokumen berhasil diunggah dan sedang menunggu verifikasi admin.');
+              loadDocuments();
+              reloadTeam();
+            } else {
+              window.alert(r.data.detail || 'Gagal mengunggah dokumen.');
+            }
+          })
+          .catch(function () {
+            window.alert('Tidak dapat menghubungi server.');
+          })
+          .finally(function () {
+            if (btn) btn.disabled = false;
+          });
+      }, { signal: signal });
+    }
 
     // initial load
     Promise.all([
@@ -342,8 +442,8 @@
           var asideSmall = container.querySelector('.dash-team small');
           if (asideSmall) asideSmall.textContent = 'ADMINISTRATOR';
         }
-        setPlaceholder(container.querySelector('[data-registration-status]'), currentProfileUser.email ? 'Verified' : 'Belum lengkap');
         renderTeam(ds[1].team, currentProfileUser);
+        loadDocuments();
       });
     }).catch(function () { if (!signal.aborted) setPlaceholder(status, 'Gagal memuat data profil.'); });
 

@@ -17,7 +17,7 @@ from pathlib import Path
 import bcrypt
 import psycopg
 from psycopg.rows import dict_row
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import FastAPI, HTTPException, Request, Response, UploadFile, File, Form
 from fastapi.responses import JSONResponse, FileResponse, RedirectResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, EmailStr, Field, field_validator
@@ -26,6 +26,17 @@ DB_DSN = os.environ["PERKUTUT_DATABASE_URL"]  # fail fast jika env var tidak dis
 SESSION_TTL_HOURS = 24
 MAX_FAILED_LOGINS = 5  # Lock the account after five incorrect passwords.
 COOKIE_SECURE = os.environ.get("PERKUTUT_COOKIE_SECURE", "0") == "1"  # set 1 saat di-deploy di belakang HTTPS
+
+FRONTEND_DIR = Path(__file__).resolve().parent.parent
+UPLOAD_DIR = Path(os.environ.get("PERKUTUT_UPLOAD_DIR", FRONTEND_DIR / "uploads"))
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+(UPLOAD_DIR / "documents").mkdir(parents=True, exist_ok=True)
+(UPLOAD_DIR / "submissions").mkdir(parents=True, exist_ok=True)
+
+ALLOWED_DOC_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".pdf"}
+ALLOWED_SUB_EXTS = {".zip", ".tar.gz", ".tgz", ".pdf", ".pkt", ".pka", ".docx", ".txt"}
+MAX_DOC_SIZE = 10 * 1024 * 1024  # 10 MB
+MAX_SUB_SIZE = 50 * 1024 * 1024  # 50 MB
 
 app = FastAPI(title="Perkutut Cup 2026 API", version="0.1.0")
 
@@ -277,6 +288,13 @@ def require_admin(request: Request):
     user = require_user(request)
     if user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="Akses ditolak: hak akses admin diperlukan")
+    return user
+
+
+def require_jury(request: Request):
+    user = require_user(request)
+    if user.get("role") not in ("jury", "admin"):
+        raise HTTPException(status_code=403, detail="Akses ditolak: hak akses juri diperlukan")
     return user
 
 
@@ -1144,7 +1162,7 @@ def team(request: Request, competition_slug: str | None = None):
     with db() as conn:
         if competition_slug:
             membership = conn.execute(
-                """SELECT t.id, t.code, t.name AS team_name, COALESCE(c.name, t.track) AS track, t.payment_status,
+                """SELECT t.id, t.code, t.name AS team_name, COALESCE(c.name, t.track) AS track, t.payment_status, t.verification_status,
                           tm.role, t.competition_id, c.slug AS competition_slug,
                           c.name AS competition_name, c.audience, c.participation_type,
                           c.min_team_members, c.max_team_members, c.status AS competition_status,
@@ -1158,7 +1176,7 @@ def team(request: Request, competition_slug: str | None = None):
             ).fetchone()
         else:
             membership = conn.execute(
-                """SELECT t.id, t.code, t.name AS team_name, COALESCE(c.name, t.track) AS track, t.payment_status,
+                """SELECT t.id, t.code, t.name AS team_name, COALESCE(c.name, t.track) AS track, t.payment_status, t.verification_status,
                           tm.role, t.competition_id, c.slug AS competition_slug,
                           c.name AS competition_name, c.audience, c.participation_type,
                           c.min_team_members, c.max_team_members, c.status AS competition_status,
@@ -1613,6 +1631,955 @@ def update_team_name(payload: TeamUpdateIn, request: Request):
     return {"ok": True, "message": "Nama tim berhasil diperbarui.", "name": name}
 
 
+# ------------------------------------------------ document & verification helpers
+
+
+def assign_team_to_admin(conn, team_id: int) -> int | None:
+    """Auto-assigns team verification to an active admin using round-robin (least loaded)."""
+    assigned = conn.execute(
+        "SELECT assigned_admin_id FROM team_verifications WHERE team_id = %s",
+        (team_id,),
+    ).fetchone()
+    if assigned:
+        return assigned["assigned_admin_id"]
+
+    admin = conn.execute(
+        """
+        SELECT u.id
+        FROM users u
+        LEFT JOIN team_verifications tv ON tv.assigned_admin_id = u.id
+        WHERE u.role = 'admin'
+        GROUP BY u.id
+        ORDER BY COUNT(tv.team_id) ASC, u.id ASC
+        LIMIT 1
+        """
+    ).fetchone()
+    if admin:
+        conn.execute(
+            "INSERT INTO team_verifications (team_id, assigned_admin_id) VALUES (%s, %s) ON CONFLICT (team_id) DO NOTHING",
+            (team_id, admin["id"]),
+        )
+        return admin["id"]
+    return None
+
+
+def assign_submission_to_jury(conn, team_id: int, competition_id: int) -> int | None:
+    """Auto-assigns a team's submission to 1 jury using round-robin per competition."""
+    assigned = conn.execute(
+        "SELECT jury_user_id FROM submission_assignments WHERE team_id = %s",
+        (team_id,),
+    ).fetchone()
+    if assigned:
+        return assigned["jury_user_id"]
+
+    # Try finding jury assigned specifically to this competition
+    jury = conn.execute(
+        """
+        SELECT u.id
+        FROM users u
+        JOIN jury_competitions jc ON jc.jury_user_id = u.id AND jc.competition_id = %s
+        LEFT JOIN submission_assignments sa ON sa.jury_user_id = u.id AND sa.competition_id = %s
+        WHERE u.role = 'jury'
+        GROUP BY u.id
+        ORDER BY COUNT(sa.team_id) ASC, u.id ASC
+        LIMIT 1
+        """,
+        (competition_id, competition_id),
+    ).fetchone()
+
+    # If no specific jury for this competition, fallback to any available jury
+    if not jury:
+        jury = conn.execute(
+            """
+            SELECT u.id
+            FROM users u
+            LEFT JOIN submission_assignments sa ON sa.jury_user_id = u.id
+            WHERE u.role = 'jury'
+            GROUP BY u.id
+            ORDER BY COUNT(sa.team_id) ASC, u.id ASC
+            LIMIT 1
+            """
+        ).fetchone()
+
+    if jury:
+        conn.execute(
+            "INSERT INTO submission_assignments (team_id, competition_id, jury_user_id) VALUES (%s, %s, %s) ON CONFLICT (team_id) DO NOTHING",
+            (team_id, competition_id, jury["id"]),
+        )
+        return jury["id"]
+    return None
+
+
+def check_and_update_team_verification(conn, team_id: int) -> str:
+    """Checks if all required documents (member KTM, pasfoto, twibbon + team payment) are APPROVED.
+    If yes, marks team verification_status = 'VERIFIED' and payment_status = 'PAID'.
+    """
+    members = conn.execute("SELECT user_id FROM team_members WHERE team_id = %s", (team_id,)).fetchall()
+    if not members:
+        conn.execute("UPDATE teams SET verification_status = 'UNVERIFIED' WHERE id = %s", (team_id,))
+        return "UNVERIFIED"
+
+    # 1. Check payment_proof
+    pay = conn.execute(
+        "SELECT status FROM documents WHERE team_id = %s AND document_type = 'payment_proof'",
+        (team_id,),
+    ).fetchone()
+    if not pay or pay["status"] != "APPROVED":
+        conn.execute("UPDATE teams SET verification_status = 'UNVERIFIED' WHERE id = %s", (team_id,))
+        return "UNVERIFIED"
+
+    # 2. Check each member's individual documents: ktm, pasfoto, twibbon
+    for m in members:
+        docs = conn.execute(
+            "SELECT document_type, status FROM documents WHERE team_id = %s AND user_id = %s",
+            (team_id, m["user_id"]),
+        ).fetchall()
+        approved_types = {d["document_type"] for d in docs if d["status"] == "APPROVED"}
+        if not {"ktm", "pasfoto", "twibbon"}.issubset(approved_types):
+            conn.execute("UPDATE teams SET verification_status = 'UNVERIFIED' WHERE id = %s", (team_id,))
+            return "UNVERIFIED"
+
+    # All approved! Automatically verify the team
+    conn.execute(
+        "UPDATE teams SET verification_status = 'VERIFIED', payment_status = 'PAID' WHERE id = %s",
+        (team_id,),
+    )
+    return "VERIFIED"
+
+
+# ------------------------------------------------ documents API
+
+
+@app.get("/api/documents")
+def list_team_documents(request: Request, competition_slug: str | None = None):
+    """Lists verification documents for the caller's active team."""
+    user = require_user(request)
+    with db() as conn:
+        if competition_slug:
+            team_row = conn.execute(
+                """
+                SELECT t.id, t.verification_status, tm.role AS caller_role
+                FROM team_members tm
+                JOIN teams t ON t.id = tm.team_id
+                LEFT JOIN competitions c ON c.id = t.competition_id
+                WHERE tm.user_id = %s AND c.slug = %s
+                ORDER BY t.created_at DESC LIMIT 1
+                """,
+                (user["id"], competition_slug.strip().lower()),
+            ).fetchone()
+        else:
+            team_row = conn.execute(
+                """
+                SELECT t.id, t.verification_status, tm.role AS caller_role
+                FROM team_members tm
+                JOIN teams t ON t.id = tm.team_id
+                WHERE tm.user_id = %s
+                ORDER BY t.created_at DESC LIMIT 1
+                """,
+                (user["id"],),
+            ).fetchone()
+
+        if not team_row:
+            return {"team_id": None, "verification_status": "UNVERIFIED", "documents": []}
+
+        team_id = team_row["id"]
+        docs = conn.execute(
+            """
+            SELECT d.id, d.team_id, d.user_id, d.document_type, d.original_name, d.mime_type,
+                   d.file_size, d.status, d.feedback, d.uploaded_at, d.verified_at,
+                   u.full_name AS member_name
+            FROM documents d
+            JOIN users u ON u.id = d.user_id
+            WHERE d.team_id = %s
+            ORDER BY d.uploaded_at ASC
+            """,
+            (team_id,),
+        ).fetchall()
+
+        members = conn.execute(
+            """
+            SELECT u.id AS user_id, u.full_name, tm.role
+            FROM team_members tm
+            JOIN users u ON u.id = tm.user_id
+            WHERE tm.team_id = %s
+            """,
+            (team_id,),
+        ).fetchall()
+
+    return {
+        "team_id": team_id,
+        "verification_status": team_row["verification_status"],
+        "caller_role": team_row["caller_role"],
+        "documents": [
+            {
+                "id": d["id"],
+                "team_id": d["team_id"],
+                "user_id": d["user_id"],
+                "member_name": d["member_name"],
+                "document_type": d["document_type"],
+                "original_name": d["original_name"],
+                "file_size": d["file_size"],
+                "status": d["status"],
+                "feedback": d["feedback"],
+                "uploaded_at": d["uploaded_at"].isoformat() if d.get("uploaded_at") else None,
+                "verified_at": d["verified_at"].isoformat() if d.get("verified_at") else None,
+                "download_url": f"/api/documents/{d['id']}/file",
+            }
+            for d in docs
+        ],
+        "members": members,
+    }
+
+
+@app.post("/api/documents/upload")
+async def upload_document(
+    request: Request,
+    document_type: str = Form(...),
+    file: UploadFile = File(...),
+    competition_slug: str | None = Form(None),
+):
+    """Uploads or resubmits a verification document (KTM, pasfoto, twibbon per user, or payment_proof per team)."""
+    user = require_user(request)
+    doc_type = document_type.strip().lower()
+    if doc_type not in ("ktm", "pasfoto", "twibbon", "payment_proof"):
+        raise HTTPException(status_code=400, detail="Jenis dokumen tidak valid.")
+
+    filename = file.filename or "upload"
+    ext = os.path.splitext(filename)[1].lower()
+    if ext not in ALLOWED_DOC_EXTS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Format file '{ext}' tidak didukung. Format yang diizinkan: {', '.join(sorted(ALLOWED_DOC_EXTS))}",
+        )
+
+    content = await file.read()
+    if len(content) > MAX_DOC_SIZE:
+        raise HTTPException(status_code=400, detail="Ukuran file melebihi batas maksimal 10MB.")
+
+    with db() as conn:
+        with conn.transaction():
+            if competition_slug:
+                team_row = conn.execute(
+                    """
+                    SELECT t.id, t.verification_status, tm.role AS caller_role
+                    FROM team_members tm
+                    JOIN teams t ON t.id = tm.team_id
+                    LEFT JOIN competitions c ON c.id = t.competition_id
+                    WHERE tm.user_id = %s AND c.slug = %s
+                    ORDER BY t.created_at DESC LIMIT 1
+                    """,
+                    (user["id"], competition_slug.strip().lower()),
+                ).fetchone()
+            else:
+                team_row = conn.execute(
+                    """
+                    SELECT t.id, t.verification_status, tm.role AS caller_role
+                    FROM team_members tm
+                    JOIN teams t ON t.id = tm.team_id
+                    WHERE tm.user_id = %s
+                    ORDER BY t.created_at DESC LIMIT 1
+                    """,
+                    (user["id"],),
+                ).fetchone()
+
+            if not team_row:
+                raise HTTPException(status_code=404, detail="Anda belum tergabung dalam tim.")
+
+            team_id = team_row["id"]
+
+            if doc_type == "payment_proof" and team_row["caller_role"] != "leader":
+                raise HTTPException(status_code=403, detail="Hanya ketua tim yang berhak mengunggah bukti pembayaran.")
+
+            # Save file to disk safely
+            safe_name = f"{team_id}_{user['id']}_{doc_type}_{secrets.token_hex(4)}{ext}"
+            doc_folder = UPLOAD_DIR / "documents" / str(team_id)
+            doc_folder.mkdir(parents=True, exist_ok=True)
+            saved_path = doc_folder / safe_name
+            saved_path.write_bytes(content)
+
+            # Clean up old file if replacing
+            old_doc = conn.execute(
+                "SELECT file_path FROM documents WHERE team_id = %s AND user_id = %s AND document_type = %s",
+                (team_id, user["id"], doc_type),
+            ).fetchone()
+            if old_doc and old_doc.get("file_path"):
+                try:
+                    old_path = Path(old_doc["file_path"])
+                    if old_path.is_file() and old_path != saved_path:
+                        old_path.unlink()
+                except Exception:
+                    pass
+
+            doc_row = conn.execute(
+                """
+                INSERT INTO documents (team_id, user_id, document_type, file_path, original_name, mime_type, file_size, status, feedback, uploaded_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, 'PENDING', NULL, now())
+                ON CONFLICT (team_id, user_id, document_type)
+                DO UPDATE SET
+                    file_path = EXCLUDED.file_path,
+                    original_name = EXCLUDED.original_name,
+                    mime_type = EXCLUDED.mime_type,
+                    file_size = EXCLUDED.file_size,
+                    status = 'PENDING',
+                    feedback = NULL,
+                    uploaded_at = now()
+                RETURNING id, team_id, user_id, document_type, original_name, file_size, status, feedback, uploaded_at
+                """,
+                (
+                    team_id,
+                    user["id"],
+                    doc_type,
+                    str(saved_path),
+                    filename,
+                    file.content_type or "application/octet-stream",
+                    len(content),
+                ),
+            ).fetchone()
+
+            # Trigger auto-assign to an admin if not assigned yet
+            assign_team_to_admin(conn, team_id)
+
+            # Re-evaluate team verification status
+            team_v_status = check_and_update_team_verification(conn, team_id)
+
+    return {
+        "ok": True,
+        "message": "Dokumen berhasil diunggah dan sedang menunggu verifikasi admin.",
+        "document": {
+            "id": doc_row["id"],
+            "team_id": doc_row["team_id"],
+            "user_id": doc_row["user_id"],
+            "document_type": doc_row["document_type"],
+            "original_name": doc_row["original_name"],
+            "file_size": doc_row["file_size"],
+            "status": doc_row["status"],
+            "feedback": doc_row["feedback"],
+            "uploaded_at": doc_row["uploaded_at"].isoformat() if doc_row.get("uploaded_at") else None,
+            "download_url": f"/api/documents/{doc_row['id']}/file",
+        },
+        "verification_status": team_v_status,
+    }
+
+
+@app.get("/api/documents/{document_id}/file")
+def get_document_file(document_id: int, request: Request):
+    """Streams a document file for authorized viewers (owner, teammate, admin, jury)."""
+    user = require_user(request)
+    with db() as conn:
+        doc = conn.execute(
+            """
+            SELECT d.*, tm.user_id AS is_teammate
+            FROM documents d
+            LEFT JOIN team_members tm ON tm.team_id = d.team_id AND tm.user_id = %s
+            WHERE d.id = %s
+            """,
+            (user["id"], document_id),
+        ).fetchone()
+
+    if not doc:
+        raise HTTPException(status_code=404, detail="Dokumen tidak ditemukan.")
+
+    is_admin = user.get("role") == "admin"
+    is_jury = user.get("role") == "jury"
+    is_owner_or_teammate = bool(doc.get("is_teammate"))
+
+    if not (is_admin or is_jury or is_owner_or_teammate):
+        raise HTTPException(status_code=403, detail="Anda tidak memiliki izin untuk melihat dokumen ini.")
+
+    file_path = Path(doc["file_path"])
+    if not file_path.is_file():
+        raise HTTPException(status_code=404, detail="File fisik dokumen tidak ditemukan pada server.")
+
+    return FileResponse(
+        file_path,
+        media_type=doc.get("mime_type") or "application/octet-stream",
+        filename=doc.get("original_name") or file_path.name,
+    )
+
+
+# ------------------------------------------------ admin verifications API
+
+
+class AdminDocumentVerifyIn(BaseModel):
+    status: str
+    feedback: str | None = None
+
+    @field_validator("status")
+    @classmethod
+    def valid_status(cls, v: str) -> str:
+        v = v.strip().upper()
+        if v not in ("APPROVED", "REJECTED"):
+            raise ValueError("Status verifikasi harus APPROVED atau REJECTED.")
+        return v
+
+
+@app.get("/api/admin/verifications")
+def list_admin_verifications(
+    request: Request,
+    filter_type: str = "mine",
+    status: str | None = None,
+):
+    """Lists teams and their verification documents assigned to this admin (or all teams)."""
+    admin = require_admin(request)
+    with db() as conn:
+        query = """
+            SELECT t.id AS team_id, t.code AS team_code, t.name AS team_name, t.track,
+                   t.payment_status, t.verification_status, t.created_at,
+                   c.name AS competition_name, c.slug AS competition_slug, c.participation_type,
+                   tv.assigned_admin_id, u_admin.full_name AS assigned_admin_name
+            FROM teams t
+            LEFT JOIN competitions c ON c.id = t.competition_id
+            LEFT JOIN team_verifications tv ON tv.team_id = t.id
+            LEFT JOIN users u_admin ON u_admin.id = tv.assigned_admin_id
+            WHERE 1=1
+        """
+        params = []
+        if filter_type == "mine":
+            query += " AND tv.assigned_admin_id = %s"
+            params.append(admin["id"])
+
+        if status:
+            query += " AND t.verification_status = %s"
+            params.append(status.strip().upper())
+
+        query += " ORDER BY t.created_at DESC"
+        teams = conn.execute(query, tuple(params)).fetchall()
+
+        result = []
+        for t in teams:
+            tid = t["team_id"]
+            docs = conn.execute(
+                """
+                SELECT d.id, d.document_type, d.original_name, d.file_size, d.status,
+                       d.feedback, d.uploaded_at, d.verified_at, u.full_name AS member_name
+                FROM documents d
+                JOIN users u ON u.id = d.user_id
+                WHERE d.team_id = %s
+                ORDER BY d.uploaded_at ASC
+                """,
+                (tid,),
+            ).fetchall()
+
+            members = conn.execute(
+                """
+                SELECT u.id AS user_id, u.full_name, u.email, u.institution, tm.role
+                FROM team_members tm
+                JOIN users u ON u.id = tm.user_id
+                WHERE tm.team_id = %s
+                ORDER BY CASE WHEN tm.role = 'leader' THEN 1 ELSE 2 END, u.id ASC
+                """,
+                (tid,),
+            ).fetchall()
+
+            approved_cnt = sum(1 for d in docs if d["status"] == "APPROVED")
+            pending_cnt = sum(1 for d in docs if d["status"] == "PENDING")
+            rejected_cnt = sum(1 for d in docs if d["status"] == "REJECTED")
+            req_cnt = (len(members) * 3) + 1  # 3 docs per member + 1 payment proof
+
+            result.append(
+                {
+                    **t,
+                    "created_at": t["created_at"].isoformat() if t.get("created_at") else None,
+                    "assigned_to_me": t.get("assigned_admin_id") == admin["id"],
+                    "members": members,
+                    "documents": [
+                        {
+                            **d,
+                            "uploaded_at": d["uploaded_at"].isoformat() if d.get("uploaded_at") else None,
+                            "verified_at": d["verified_at"].isoformat() if d.get("verified_at") else None,
+                            "download_url": f"/api/documents/{d['id']}/file",
+                        }
+                        for d in docs
+                    ],
+                    "stats": {
+                        "approved": approved_cnt,
+                        "pending": pending_cnt,
+                        "rejected": rejected_cnt,
+                        "required": req_cnt,
+                        "is_complete": approved_cnt >= req_cnt and req_cnt > 0,
+                    },
+                }
+            )
+
+    return {"teams": result}
+
+
+@app.patch("/api/admin/verifications/{document_id}")
+def verify_document(document_id: int, payload: AdminDocumentVerifyIn, request: Request):
+    """Admin approves or rejects a document with feedback. Auto-verifies team if all approved."""
+    admin = require_admin(request)
+    stat = payload.status.strip().upper()
+    feedback = payload.feedback.strip() if payload.feedback else None
+
+    if stat == "REJECTED" and not feedback:
+        raise HTTPException(status_code=400, detail="Catatan feedback wajib diisi saat menolak dokumen.")
+
+    with db() as conn:
+        with conn.transaction():
+            doc = conn.execute(
+                "SELECT * FROM documents WHERE id = %s",
+                (document_id,),
+            ).fetchone()
+            if not doc:
+                raise HTTPException(status_code=404, detail="Dokumen tidak ditemukan.")
+
+            team_id = doc["team_id"]
+
+            conn.execute(
+                """
+                UPDATE documents
+                SET status = %s, feedback = %s, verified_by = %s, verified_at = now()
+                WHERE id = %s
+                """,
+                (stat, feedback, admin["id"], document_id),
+            )
+
+            # Auto-check if all required documents for this team are approved
+            team_v_status = check_and_update_team_verification(conn, team_id)
+
+    return {
+        "ok": True,
+        "message": f"Dokumen berhasil ditandai sebagai {stat}.",
+        "document_id": document_id,
+        "status": stat,
+        "feedback": feedback,
+        "team_verification_status": team_v_status,
+    }
+
+
+# ------------------------------------------------ submissions & jury evaluation API
+
+
+@app.get("/api/submissions")
+def get_team_submissions(request: Request, competition_slug: str | None = None):
+    """Returns the caller's team submission status, problem files, and jury evaluation."""
+    user = require_user(request)
+    with db() as conn:
+        if competition_slug:
+            team_row = conn.execute(
+                """
+                SELECT t.id, t.verification_status, t.competition_id, c.name AS comp_name,
+                       c.slug AS comp_slug, c.status AS comp_status, tm.role AS caller_role
+                FROM team_members tm
+                JOIN teams t ON t.id = tm.team_id
+                LEFT JOIN competitions c ON c.id = t.competition_id
+                WHERE tm.user_id = %s AND c.slug = %s
+                ORDER BY t.created_at DESC LIMIT 1
+                """,
+                (user["id"], competition_slug.strip().lower()),
+            ).fetchone()
+        else:
+            team_row = conn.execute(
+                """
+                SELECT t.id, t.verification_status, t.competition_id, c.name AS comp_name,
+                       c.slug AS comp_slug, c.status AS comp_status, tm.role AS caller_role
+                FROM team_members tm
+                JOIN teams t ON t.id = tm.team_id
+                LEFT JOIN competitions c ON c.id = t.competition_id
+                WHERE tm.user_id = %s
+                ORDER BY t.created_at DESC LIMIT 1
+                """,
+                (user["id"],),
+            ).fetchone()
+
+        if not team_row:
+            return {"team_id": None, "is_verified": False, "message": "Belum terdaftar dalam kompetisi."}
+
+        is_verified = team_row["verification_status"] == "VERIFIED"
+        team_id = team_row["id"]
+
+        if not is_verified:
+            return {
+                "team_id": team_id,
+                "is_verified": False,
+                "verification_status": team_row["verification_status"],
+                "message": "Pendaftaran tim Anda belum terverifikasi oleh panitia. Selesaikan verifikasi seluruh berkas identitas dan pembayaran di tab Profile & Team terlebih dahulu.",
+                "submission": None,
+            }
+
+        # Submissions for this team
+        sub = conn.execute(
+            """
+            SELECT s.id, s.team_id, s.competition_id, s.item_key, s.original_name,
+                   s.file_size, s.notes, s.submitted_at, s.updated_at,
+                   se.score, se.feedback AS evaluation_feedback, se.evaluated_at
+            FROM submissions s
+            LEFT JOIN submission_evaluations se ON se.team_id = s.team_id
+            WHERE s.team_id = %s
+            ORDER BY s.submitted_at DESC LIMIT 1
+            """,
+            (team_id,),
+        ).fetchone()
+
+    return {
+        "team_id": team_id,
+        "is_verified": True,
+        "verification_status": "VERIFIED",
+        "competition": {
+            "name": team_row["comp_name"],
+            "slug": team_row["comp_slug"],
+        },
+        "submission": (
+            {
+                "id": sub["id"],
+                "original_name": sub["original_name"],
+                "file_size": sub["file_size"],
+                "notes": sub["notes"],
+                "submitted_at": sub["submitted_at"].isoformat() if sub.get("submitted_at") else None,
+                "download_url": f"/api/submissions/{sub['id']}/file",
+                "evaluation": (
+                    {
+                        "score": float(sub["score"]) if sub.get("score") is not None else None,
+                        "feedback": sub.get("evaluation_feedback"),
+                        "evaluated_at": sub["evaluated_at"].isoformat() if sub.get("evaluated_at") else None,
+                    }
+                    if sub.get("score") is not None
+                    else None
+                ),
+            }
+            if sub
+            else None
+        ),
+    }
+
+
+@app.post("/api/submissions/upload")
+async def upload_submission(
+    request: Request,
+    file: UploadFile = File(...),
+    notes: str | None = Form(None),
+    competition_slug: str | None = Form(None),
+):
+    """Uploads project submission karya for a verified team. Auto-assigns to 1 jury via round-robin."""
+    user = require_user(request)
+    filename = file.filename or "karya"
+    ext = os.path.splitext(filename)[1].lower()
+    if ext not in ALLOWED_SUB_EXTS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Format file karya '{ext}' tidak didukung. Format yang diizinkan: {', '.join(sorted(ALLOWED_SUB_EXTS))}",
+        )
+
+    content = await file.read()
+    if len(content) > MAX_SUB_SIZE:
+        raise HTTPException(status_code=400, detail="Ukuran file karya melebihi batas maksimal 50MB.")
+
+    with db() as conn:
+        with conn.transaction():
+            if competition_slug:
+                team_row = conn.execute(
+                    """
+                    SELECT t.id, t.verification_status, t.competition_id, c.name AS comp_name, tm.role AS caller_role
+                    FROM team_members tm
+                    JOIN teams t ON t.id = tm.team_id
+                    LEFT JOIN competitions c ON c.id = t.competition_id
+                    WHERE tm.user_id = %s AND c.slug = %s
+                    ORDER BY t.created_at DESC LIMIT 1
+                    """,
+                    (user["id"], competition_slug.strip().lower()),
+                ).fetchone()
+            else:
+                team_row = conn.execute(
+                    """
+                    SELECT t.id, t.verification_status, t.competition_id, c.name AS comp_name, tm.role AS caller_role
+                    FROM team_members tm
+                    JOIN teams t ON t.id = tm.team_id
+                    LEFT JOIN competitions c ON c.id = t.competition_id
+                    WHERE tm.user_id = %s
+                    ORDER BY t.created_at DESC LIMIT 1
+                    """,
+                    (user["id"],),
+                ).fetchone()
+
+            if not team_row:
+                raise HTTPException(status_code=404, detail="Anda belum tergabung dalam tim.")
+
+            if team_row["verification_status"] != "VERIFIED":
+                raise HTTPException(
+                    status_code=403,
+                    detail="Pendaftaran tim Anda belum terverifikasi oleh panitia. Mohon selesaikan verifikasi berkas terlebih dahulu.",
+                )
+
+            team_id = team_row["id"]
+            comp_id = team_row["competition_id"]
+
+            safe_name = f"{team_id}_sub_{secrets.token_hex(4)}{ext}"
+            sub_folder = UPLOAD_DIR / "submissions" / str(team_id)
+            sub_folder.mkdir(parents=True, exist_ok=True)
+            saved_path = sub_folder / safe_name
+            saved_path.write_bytes(content)
+
+            sub_row = conn.execute(
+                """
+                INSERT INTO submissions (team_id, competition_id, item_key, file_path, original_name, mime_type, file_size, notes, submitted_by, submitted_at, updated_at)
+                VALUES (%s, %s, 'main', %s, %s, %s, %s, %s, %s, now(), now())
+                ON CONFLICT (team_id, item_key)
+                DO UPDATE SET
+                    file_path = EXCLUDED.file_path,
+                    original_name = EXCLUDED.original_name,
+                    mime_type = EXCLUDED.mime_type,
+                    file_size = EXCLUDED.file_size,
+                    notes = EXCLUDED.notes,
+                    submitted_by = EXCLUDED.submitted_by,
+                    updated_at = now()
+                RETURNING id, team_id, original_name, file_size, notes, submitted_at
+                """,
+                (
+                    team_id,
+                    comp_id,
+                    str(saved_path),
+                    filename,
+                    file.content_type or "application/octet-stream",
+                    len(content),
+                    notes.strip() if notes else None,
+                    user["id"],
+                ),
+            ).fetchone()
+
+            # Auto-assign to 1 jury using round-robin per competition
+            assigned_jury_id = assign_submission_to_jury(conn, team_id, comp_id)
+
+    return {
+        "ok": True,
+        "message": "Karya berhasil disubmit dan dialokasikan ke juri untuk penilaian.",
+        "submission": {
+            "id": sub_row["id"],
+            "original_name": sub_row["original_name"],
+            "file_size": sub_row["file_size"],
+            "notes": sub_row["notes"],
+            "submitted_at": sub_row["submitted_at"].isoformat() if sub_row.get("submitted_at") else None,
+            "download_url": f"/api/submissions/{sub_row['id']}/file",
+        },
+    }
+
+
+@app.get("/api/submissions/{submission_id}/file")
+def get_submission_file(submission_id: int, request: Request):
+    """Streams a submission file for team members, assigned jury, or admin."""
+    user = require_user(request)
+    with db() as conn:
+        sub = conn.execute(
+            """
+            SELECT s.*, tm.user_id AS is_teammate, sa.jury_user_id
+            FROM submissions s
+            LEFT JOIN team_members tm ON tm.team_id = s.team_id AND tm.user_id = %s
+            LEFT JOIN submission_assignments sa ON sa.team_id = s.team_id
+            WHERE s.id = %s
+            """,
+            (user["id"], submission_id),
+        ).fetchone()
+
+    if not sub:
+        raise HTTPException(status_code=404, detail="File karya tidak ditemukan.")
+
+    is_admin = user.get("role") == "admin"
+    is_assigned_jury = user.get("role") == "jury" and (sub.get("jury_user_id") == user["id"])
+    is_teammate = bool(sub.get("is_teammate"))
+
+    if not (is_admin or is_assigned_jury or is_teammate):
+        raise HTTPException(status_code=403, detail="Akses ditolak: Anda tidak memiliki izin untuk mengunduh karya ini.")
+
+    file_path = Path(sub["file_path"])
+    if not file_path.is_file():
+        raise HTTPException(status_code=404, detail="File fisik karya tidak ditemukan pada server.")
+
+    return FileResponse(
+        file_path,
+        media_type=sub.get("mime_type") or "application/octet-stream",
+        filename=sub.get("original_name") or file_path.name,
+    )
+
+
+# ------------------------------------------------ jury evaluation endpoints
+
+
+class JuryEvaluateIn(BaseModel):
+    score: float = Field(ge=0.0, le=100.0)
+    feedback: str | None = None
+
+
+@app.get("/api/jury/submissions")
+def list_jury_submissions(request: Request):
+    """Lists submissions assigned to this jury (or all for admin)."""
+    user = require_jury(request)
+    is_admin = user.get("role") == "admin"
+
+    with db() as conn:
+        if is_admin:
+            rows = conn.execute(
+                """
+                SELECT s.id AS submission_id, s.team_id, s.original_name, s.file_size, s.notes, s.submitted_at,
+                       t.code AS team_code, t.name AS team_name, c.name AS comp_name, c.slug AS comp_slug,
+                       sa.jury_user_id, u_jury.full_name AS assigned_jury_name,
+                       se.score, se.feedback, se.evaluated_at
+                FROM submissions s
+                JOIN teams t ON t.id = s.team_id
+                JOIN competitions c ON c.id = s.competition_id
+                LEFT JOIN submission_assignments sa ON sa.team_id = s.team_id
+                LEFT JOIN users u_jury ON u_jury.id = sa.jury_user_id
+                LEFT JOIN submission_evaluations se ON se.team_id = s.team_id
+                ORDER BY s.submitted_at DESC
+                """
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """
+                SELECT s.id AS submission_id, s.team_id, s.original_name, s.file_size, s.notes, s.submitted_at,
+                       t.code AS team_code, t.name AS team_name, c.name AS comp_name, c.slug AS comp_slug,
+                       sa.jury_user_id, u_jury.full_name AS assigned_jury_name,
+                       se.score, se.feedback, se.evaluated_at
+                FROM submissions s
+                JOIN teams t ON t.id = s.team_id
+                JOIN competitions c ON c.id = s.competition_id
+                JOIN submission_assignments sa ON sa.team_id = s.team_id AND sa.jury_user_id = %s
+                LEFT JOIN users u_jury ON u_jury.id = sa.jury_user_id
+                LEFT JOIN submission_evaluations se ON se.team_id = s.team_id AND se.jury_user_id = %s
+                ORDER BY s.submitted_at DESC
+                """,
+                (user["id"], user["id"]),
+            ).fetchall()
+
+    return {
+        "submissions": [
+            {
+                "submission_id": r["submission_id"],
+                "team_id": r["team_id"],
+                "team_code": r["team_code"],
+                "team_name": r["team_name"],
+                "competition_name": r["comp_name"],
+                "competition_slug": r["comp_slug"],
+                "original_name": r["original_name"],
+                "file_size": r["file_size"],
+                "notes": r["notes"],
+                "submitted_at": r["submitted_at"].isoformat() if r.get("submitted_at") else None,
+                "download_url": f"/api/submissions/{r['submission_id']}/file",
+                "assigned_jury_name": r.get("assigned_jury_name"),
+                "evaluation": (
+                    {
+                        "score": float(r["score"]),
+                        "feedback": r["feedback"],
+                        "evaluated_at": r["evaluated_at"].isoformat() if r.get("evaluated_at") else None,
+                    }
+                    if r.get("score") is not None
+                    else None
+                ),
+            }
+            for r in rows
+        ]
+    }
+
+
+@app.post("/api/jury/submissions/{team_id}/evaluate")
+def evaluate_submission(team_id: int, payload: JuryEvaluateIn, request: Request):
+    """Jury inputs score (0-100) and feedback for an assigned team's submission."""
+    user = require_jury(request)
+    is_admin = user.get("role") == "admin"
+
+    with db() as conn:
+        with conn.transaction():
+            sub = conn.execute(
+                """
+                SELECT s.id, s.team_id, sa.jury_user_id
+                FROM submissions s
+                LEFT JOIN submission_assignments sa ON sa.team_id = s.team_id
+                WHERE s.team_id = %s
+                """,
+                (team_id,),
+            ).fetchone()
+            if not sub:
+                raise HTTPException(status_code=404, detail="Submisi tim tidak ditemukan.")
+
+            if not is_admin and sub.get("jury_user_id") != user["id"]:
+                raise HTTPException(status_code=403, detail="Akses ditolak: Anda bukan juri yang ditugaskan untuk karya ini.")
+
+            eval_row = conn.execute(
+                """
+                INSERT INTO submission_evaluations (team_id, jury_user_id, score, feedback, evaluated_at)
+                VALUES (%s, %s, %s, %s, now())
+                ON CONFLICT (team_id, jury_user_id)
+                DO UPDATE SET
+                    score = EXCLUDED.score,
+                    feedback = EXCLUDED.feedback,
+                    evaluated_at = now()
+                RETURNING id, team_id, jury_user_id, score, feedback, evaluated_at
+                """,
+                (team_id, user["id"], payload.score, payload.feedback.strip() if payload.feedback else None),
+            ).fetchone()
+
+    return {
+        "ok": True,
+        "message": f"Penilaian berhasil disimpan (Skor: {float(eval_row['score'])}).",
+        "evaluation": {
+            "score": float(eval_row["score"]),
+            "feedback": eval_row["feedback"],
+            "evaluated_at": eval_row["evaluated_at"].isoformat() if eval_row.get("evaluated_at") else None,
+        },
+    }
+
+
+# ------------------------------------------------ admin jury assignment API
+
+
+class AdminJuryCompetitionsIn(BaseModel):
+    competition_ids: list[int]
+
+
+@app.get("/api/admin/juries")
+def list_admin_juries(request: Request):
+    """Lists all users with role='jury' and their assigned competitions."""
+    require_admin(request)
+    with db() as conn:
+        juries = conn.execute(
+            """
+            SELECT id, full_name, email, role, institution
+            FROM users
+            WHERE role = 'jury'
+            ORDER BY id ASC
+            """
+        ).fetchall()
+
+        result = []
+        for j in juries:
+            assigned = conn.execute(
+                """
+                SELECT c.id, c.name, c.slug
+                FROM jury_competitions jc
+                JOIN competitions c ON c.id = jc.competition_id
+                WHERE jc.jury_user_id = %s
+                ORDER BY c.id ASC
+                """,
+                (j["id"],),
+            ).fetchall()
+            result.append(
+                {
+                    **j,
+                    "competitions": assigned,
+                }
+            )
+
+    return {"juries": result}
+
+
+@app.post("/api/admin/juries/{jury_user_id}/competitions")
+def set_jury_competitions(jury_user_id: int, payload: AdminJuryCompetitionsIn, request: Request):
+    """Assigns or updates competitions for a jury member."""
+    require_admin(request)
+    with db() as conn:
+        with conn.transaction():
+            user = conn.execute("SELECT id, role FROM users WHERE id = %s", (jury_user_id,)).fetchone()
+            if not user or user["role"] != "jury":
+                raise HTTPException(status_code=400, detail="Pengguna bukan merupakan akun dengan peran juri.")
+
+            conn.execute("DELETE FROM jury_competitions WHERE jury_user_id = %s", (jury_user_id,))
+            for cid in payload.competition_ids:
+                conn.execute(
+                    "INSERT INTO jury_competitions (jury_user_id, competition_id) VALUES (%s, %s) ON CONFLICT DO NOTHING",
+                    (jury_user_id, cid),
+                )
+
+    return {"ok": True, "message": "Penugasan kompetisi juri berhasil diperbarui."}
+
+
 
 
 # ------------------------------------------------------ app shell (SPA, wave 1)
@@ -1642,6 +2609,8 @@ ALLOWED_APP_PATHS = {
     "/dashboard/submission/",
     "/dashboard/competitions/",
     "/dashboard/users/",
+    "/dashboard/verifications/",
+    "/dashboard/jury/",
 }
 
 
@@ -1696,6 +2665,24 @@ def app_shell_users(request: Request):
     return serve_app_shell(request, target_path="/dashboard/users/")
 
 
+@app.get("/dashboard/verifications")
+@app.get("/dashboard/verifications/")
+def app_shell_verifications(request: Request):
+    u = current_user(request)
+    if u is None or u.get("role") != "admin":
+        return FileResponse(FRONTEND_DIR / "404.html", headers={"Cache-Control": "no-store"})
+    return serve_app_shell(request, target_path="/dashboard/verifications/")
+
+
+@app.get("/dashboard/jury")
+@app.get("/dashboard/jury/")
+def app_shell_jury(request: Request):
+    u = current_user(request)
+    if u is None or u.get("role") not in ("jury", "admin"):
+        return FileResponse(FRONTEND_DIR / "404.html", headers={"Cache-Control": "no-store"})
+    return serve_app_shell(request, target_path="/dashboard/jury/")
+
+
 # ------------------------------------------------- static frontend + guard
 
 FRONTEND_DIR = Path(__file__).resolve().parent.parent
@@ -1706,25 +2693,38 @@ app.mount("/assets", StaticFiles(directory=FRONTEND_DIR / "assets"), name="asset
 def serve_static(page_path: str, request: Request):
     """Sajikan frontend statis dari origin yang sama (cookie butuh same-origin)."""
     # Guard server-side untuk dashboard: tanpa session -> 404.html
-    # NOTE: /dashboard, /dashboard/profile(/), /dashboard/submission(/),
-    # /dashboard/competitions(/) and /dashboard/users(/) are served by the
-    # explicit shell routes above. Anything else under dashboard/ has no
-    # static page anymore (the legacy index.html files were removed once the
-    # SPA shell took over), so just return 404.
     if page_path.startswith("dashboard") or page_path == "dashboard":
         u = current_user(request)
         if u is None:
             page_path = "404.html"
-        elif page_path.startswith("dashboard/competitions") or page_path == "dashboard/competitions":
+        elif (
+            page_path.startswith("dashboard/competitions")
+            or page_path.startswith("dashboard/users")
+            or page_path.startswith("dashboard/verifications")
+        ):
             if u.get("role") != "admin":
                 page_path = "404.html"
+        elif page_path.startswith("dashboard/jury"):
+            if u.get("role") not in ("jury", "admin"):
+                page_path = "404.html"
         elif page_path in ("dashboard", "dashboard/"):
-            page_path = "404.html"
+            if u.get("role") == "admin":
+                return RedirectResponse("/dashboard/verifications/", status_code=303)
+            elif u.get("role") == "jury":
+                return RedirectResponse("/dashboard/jury/", status_code=303)
+            else:
+                return RedirectResponse("/dashboard/profile/", status_code=303)
 
-    # Halaman auth: yang sudah punya session langsung dilempar ke dashboard
+    # Halaman auth: yang sudah punya session langsung dilempar ke dashboard sesuai role
     if page_path in ("sign-in", "sign-in/", "join", "join/"):
-        if current_user(request) is not None:
-            return RedirectResponse("/dashboard/profile/", status_code=303)
+        u = current_user(request)
+        if u is not None:
+            if u.get("role") == "admin":
+                return RedirectResponse("/dashboard/verifications/", status_code=303)
+            elif u.get("role") == "jury":
+                return RedirectResponse("/dashboard/jury/", status_code=303)
+            else:
+                return RedirectResponse("/dashboard/profile/", status_code=303)
 
     candidate = FRONTEND_DIR / page_path
     auth_or_dashboard = page_path.startswith(("dashboard", "sign-in", "join"))

@@ -91,6 +91,10 @@
 '          <label class="field"><span>PASSWORD</span><input class="input" type="password" id="field-password" autocomplete="new-password" placeholder="Kosongkan jika tidak diubah" /></label>' + "\n" +
 '        </div>' + "\n" +
 '        <p class="proof-hint" id="password-hint">Password mengikuti kebijakan aplikasi. Password/hash tidak pernah ditampilkan kembali.</p>' + "\n" +
+'        <div id="jury-comp-wrap" class="field" hidden style="margin-top:0.8rem;">' + "\n" +
+'          <span>CABANG KOMPETISI YANG DIAMPU (KHUSUS JURI)</span>' + "\n" +
+'          <div id="jury-comp-checkboxes" style="display:flex; flex-wrap:wrap; gap:10px; margin-top:0.4rem; padding:0.6rem; border:1px solid var(--dash-border-mid); border-radius:8px; background:rgba(255,255,255,0.02);"></div>' + "\n" +
+'        </div>' + "\n" +
 '        <div id="user-info" class="proof-hint" hidden></div>' + "\n" +
 '        <div style="display:flex; justify-content:flex-end; gap:0.8rem; margin-top:1.5rem;">' + "\n" +
 '          <button class="btn-upload" type="button" id="user-modal-cancel">BATAL</button>' + "\n" +
@@ -116,13 +120,41 @@
     var adminView = container.querySelector('#admin-view'), unauthView = container.querySelector('#unauthorized-view'), tbody = container.querySelector('#users-tbody'), listStatus = container.querySelector('#list-status'), userNameEl = container.querySelector('[data-user-name]');
     var modal = container.querySelector('#user-modal'), modalTitle = container.querySelector('#user-modal-title'), form = container.querySelector('#user-form'), modalStatus = container.querySelector('#user-modal-status'), userInfo = container.querySelector('#user-info');
     var fName = container.querySelector('#field-name'), fEmail = container.querySelector('#field-email'), fRole = container.querySelector('#field-role'), fPass = container.querySelector('#field-password');
-    var mode = 'create', editingId = null, users = [];
+    var juryCompWrap = container.querySelector('#jury-comp-wrap'), juryCompBox = container.querySelector('#jury-comp-checkboxes');
+    var mode = 'create', editingId = null, users = [], allComps = [], juryAssignments = {};
     function esc(v){ return String(v == null ? '' : v).replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
     function closeModal(){ modal.classList.remove('is-open'); modal.setAttribute('aria-hidden','true'); }
-    function openModal(nextMode, user){ mode = nextMode; editingId = user ? user.id : null; modalStatus.textContent=''; userInfo.hidden = true; fPass.value=''; form.reset(); fRole.value='user';
-      if (mode === 'create') { modalTitle.textContent='Tambah Pengguna'; fName.disabled=false; fEmail.disabled=false; fName.required=true; fEmail.required=true; fPass.required=true; container.querySelector('#password-hint').textContent='Password wajib diisi untuk pengguna baru dan mengikuti kebijakan aplikasi.'; }
-      else { modalTitle.textContent = 'Ubah Pengguna #' + user.id; fName.value=user.full_name||''; fEmail.value=user.email||''; fRole.value=user.role||'user'; fName.disabled=true; fEmail.disabled=true; fName.required=false; fEmail.required=false; fPass.required=false; container.querySelector('#password-hint').textContent='Kosongkan password jika tidak ingin mereset. Password/hash tidak pernah ditampilkan.'; userInfo.hidden=false; userInfo.textContent='ID: '+user.id+' · Email: '+(user.email||'-')+' · Dibuat: '+(user.created_at||'-')+(user.institution?' · Institusi: '+user.institution:''); }
-      modal.classList.add('is-open'); modal.setAttribute('aria-hidden','false'); }
+
+    function updateJuryCompVisibility() {
+      if (juryCompWrap) juryCompWrap.hidden = (fRole.value !== 'jury');
+    }
+    fRole.addEventListener('change', updateJuryCompVisibility, { signal: signal });
+
+    function renderCompCheckboxes(selectedIds) {
+      if (!juryCompBox) return;
+      selectedIds = selectedIds || [];
+      juryCompBox.innerHTML = allComps.map(function(c) {
+        var checked = selectedIds.indexOf(c.id) !== -1 ? ' checked' : '';
+        return '<label style="display:inline-flex; align-items:center; gap:5px; font-size:0.75rem; cursor:pointer; margin-right:8px;"><input type="checkbox" value="' + c.id + '"' + checked + ' /> ' + esc(c.name) + '</label>';
+      }).join('');
+    }
+
+    function openModal(nextMode, user){
+      mode = nextMode; editingId = user ? user.id : null; modalStatus.textContent=''; userInfo.hidden = true; fPass.value=''; form.reset(); fRole.value = user ? (user.role || 'user') : 'user';
+      updateJuryCompVisibility();
+      var assignedCids = (user && juryAssignments[user.id]) ? juryAssignments[user.id].map(function(c){ return c.id; }) : [];
+      renderCompCheckboxes(assignedCids);
+
+      if (mode === 'create') {
+        modalTitle.textContent='Tambah Pengguna'; fName.disabled=false; fEmail.disabled=false; fName.required=true; fEmail.required=true; fPass.required=true;
+        container.querySelector('#password-hint').textContent='Password wajib diisi untuk pengguna baru dan mengikuti kebijakan aplikasi.';
+      } else {
+        modalTitle.textContent = 'Ubah Pengguna #' + user.id; fName.value=user.full_name||''; fEmail.value=user.email||''; fName.disabled=true; fEmail.disabled=true; fName.required=false; fEmail.required=false; fPass.required=false;
+        container.querySelector('#password-hint').textContent='Kosongkan password jika tidak ingin mereset. Password/hash tidak pernah ditampilkan.';
+        userInfo.hidden=false; userInfo.textContent='ID: '+user.id+' · Email: '+(user.email||'-')+' · Dibuat: '+(user.created_at||'-')+(user.institution?' · Institusi: '+user.institution:'');
+      }
+      modal.classList.add('is-open'); modal.setAttribute('aria-hidden','false');
+    }
     container.querySelector('#user-modal-close').addEventListener('click', closeModal, { signal: signal }); container.querySelector('#user-modal-cancel').addEventListener('click', closeModal, { signal: signal }); container.querySelector('#btn-add-user').addEventListener('click', function(){ openModal('create'); }, { signal: signal });
 
     (async function () {
@@ -132,6 +164,12 @@
         if (!sessionData.authenticated || !sessionData.user || sessionData.user.role !== 'admin') { unauthView.hidden=false; return; }
         if (userNameEl) userNameEl.textContent = sessionData.user.full_name || 'Admin Portal';
         adminView.hidden = false;
+
+        // Fetch competitions catalog for jury assignment
+        fetch('/api/competitions', { credentials:'same-origin', signal: signal })
+          .then(function(r){ return r.json(); })
+          .then(function(d){ allComps = d.competitions || []; })
+          .catch(function(){});
       } catch (e) { if (signal.aborted) return; unauthView.hidden=false; return; }
 
       async function loadUsers(){
@@ -144,6 +182,13 @@
           if (!res.ok) throw new Error(data.detail || ('HTTP ' + res.status));
           users = data.users || [];
           listStatus.textContent = 'Total: ' + (data.total == null ? users.length : data.total) + ' pengguna.';
+
+          // Load juries assignments
+          fetch('/api/admin/juries', { credentials:'same-origin', signal: signal })
+            .then(function(r){ return r.json(); })
+            .then(function(d){ (d.juries || []).forEach(function(j){ juryAssignments[j.id] = j.competitions || []; }); })
+            .catch(function(){});
+
           if (!users.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--dash-text-muted);">Tidak ada pengguna.</td></tr>'; return; }
           tbody.innerHTML = users.map(function(u){
             var role = u.role || 'user';
@@ -159,17 +204,32 @@
       form.addEventListener('submit', async function(e){
         e.preventDefault(); modalStatus.style.color='var(--dash-text-muted)'; modalStatus.textContent='Menyimpan…';
         try {
-          var res, data;
+          var res, data, targetUserId = editingId;
           if (mode === 'create') {
             if (!fName.value.trim() || !fEmail.value.trim() || !fPass.value) { modalStatus.style.color='#e74c3c'; modalStatus.textContent='Nama, email, dan password wajib diisi.'; return; }
             res = await fetch('/api/admin/users', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ full_name:fName.value.trim(), email:fEmail.value.trim(), password:fPass.value, role:fRole.value }), signal: signal });
+            data = await res.json().catch(function(){ return {}; });
+            if (res.ok && data.user) targetUserId = data.user.id;
           } else {
             var body = { role:fRole.value };
             if (fPass.value) body.password = fPass.value;
             res = await fetch('/api/admin/users/' + editingId, { method:'PATCH', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body), signal: signal });
+            data = await res.json().catch(function(){ return {}; });
           }
-          data = await res.json().catch(function(){ return {}; });
           if (!res.ok) { modalStatus.style.color='#e74c3c'; modalStatus.textContent = data.detail || ('Gagal ('+res.status+').'); return; }
+
+          // If role is jury, save assigned competitions
+          if (fRole.value === 'jury' && targetUserId && juryCompBox) {
+            var selectedCids = Array.from(juryCompBox.querySelectorAll('input[type="checkbox"]:checked')).map(function(cb){ return Number(cb.value); });
+            await fetch('/api/admin/juries/' + targetUserId + '/competitions', {
+              method: 'POST',
+              credentials: 'same-origin',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ competition_ids: selectedCids }),
+              signal: signal
+            }).catch(function(){});
+          }
+
           modalStatus.style.color='#2ecc71'; modalStatus.textContent = data.message || (mode==='create' ? 'Pengguna berhasil dibuat.' : (data.password_reset ? 'Role diperbarui dan password direset.' : 'Role berhasil diperbarui.'));
           setTimeout(function(){ if (signal.aborted) return; closeModal(); loadUsers(); }, 500);
         } catch (err) { if (signal.aborted) return; modalStatus.style.color='#e74c3c'; modalStatus.textContent='Tidak dapat menghubungi server.'; }

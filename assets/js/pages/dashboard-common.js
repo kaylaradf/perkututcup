@@ -6,10 +6,12 @@
   if (window.DashCommon) return;
 
   var NAV_ITEMS = [
-    { key: "profile", href: "/dashboard/profile/", icon: "/assets/svg/dashboard/nav-profile.svg", label: "PROFILE &amp; TEAM", admin: false },
-    { key: "submission", href: "/dashboard/submission/", icon: "/assets/svg/dashboard/nav-submission.svg", label: "PROJECT SUBMISSION", admin: false },
-    { key: "competitions", href: "/dashboard/competitions/", icon: "/assets/svg/dashboard/icon-trophy.svg", label: "KELOLA KOMPETISI", admin: true },
-    { key: "users", href: "/dashboard/users/", icon: "/assets/svg/dashboard/icon-members.svg", label: "KELOLA PENGGUNA", admin: true }
+    { key: "profile", href: "/dashboard/profile/", icon: "/assets/svg/dashboard/nav-profile.svg", label: "PROFILE &amp; TEAM", roles: ["user", "admin"] },
+    { key: "submission", href: "/dashboard/submission/", icon: "/assets/svg/dashboard/nav-submission.svg", label: "PROJECT SUBMISSION", roles: ["user", "admin"] },
+    { key: "verifications", href: "/dashboard/verifications/", icon: "/assets/svg/dashboard/nav-profile.svg", label: "VERIFIKASI BERKAS", roles: ["admin"] },
+    { key: "competitions", href: "/dashboard/competitions/", icon: "/assets/svg/dashboard/icon-trophy.svg", label: "KELOLA KOMPETISI", roles: ["admin"] },
+    { key: "users", href: "/dashboard/users/", icon: "/assets/svg/dashboard/icon-members.svg", label: "KELOLA PENGGUNA", roles: ["admin"] },
+    { key: "jury", href: "/dashboard/jury/", icon: "/assets/svg/dashboard/icon-trophy.svg", label: "PENILAIAN KARYA", roles: ["jury", "admin"] }
   ];
 
   function escapeHtml(s) {
@@ -19,16 +21,20 @@
   }
 
   /* Returns the full <aside>...</aside> HTML string for a dashboard module.
-   * active: 'profile' | 'submission' | 'competitions' | 'users' */
+   * active: 'profile' | 'submission' | 'competitions' | 'users' | 'verifications' | 'jury' */
   function renderAside(active) {
     var appState = window.__APP_STATE__ || {};
     var user = appState.user || {};
     var name = user.full_name || "User";
     var initial = (name.trim().charAt(0) || "U").toUpperCase();
-    var isAdmin = user.role === "admin";
+    var role = user.role || "user";
+    var roleLabel = "ACTIVE TEAM";
+    if (role === "admin") roleLabel = "ADMINISTRATOR";
+    else if (role === "jury") roleLabel = "JURI KOMPETISI";
+
     var nav = "";
     NAV_ITEMS.forEach(function (item) {
-      if (item.admin && !isAdmin) return;
+      if (item.roles && item.roles.indexOf(role) === -1) return;
       var cls = item.key === active ? ' class="is-active" aria-current="page"' : "";
       nav += '<a' + cls + ' href="' + item.href + '"><img src="' + item.icon + '" width="18" height="18" alt="" /><span>' + item.label + "</span></a>";
     });
@@ -41,7 +47,7 @@
       "    </a>" +
       '    <div class="dash-team">' +
       '      <span class="dash-avatar">' + escapeHtml(initial) + "</span>" +
-      "      <span><small>" + (isAdmin ? "ADMINISTRATOR" : "ACTIVE TEAM") + "</small><strong data-aside-name>" + escapeHtml(name) + "</strong></span>" +
+      "      <span><small>" + escapeHtml(roleLabel) + "</small><strong data-aside-name>" + escapeHtml(name) + "</strong></span>" +
       "    </div>" +
       '    <nav class="dash-nav" aria-label="Menu dashboard">' +
       nav +
