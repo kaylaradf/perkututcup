@@ -135,3 +135,16 @@ Setiap peran diarahkan ke antarmuka dashboard masing-masing yang terisolasi sesu
    - **Terkonfirmasi**: Menggunakan skor angka **0–100** ditambah catatan evaluasi/feedback juri.
 3. **Manajemen Akun Juri & Admin**:
    - **Terkonfirmasi**: Akun Juri dan Admin dibuat atau diubah perannya oleh Administrator melalui menu Kelola Pengguna (`/dashboard/users/`). Untuk akun Juri, Admin juga menentukan cabang lomba yang diampunya.
+
+---
+
+## 8. Kredensial Default Staging (Testing)
+
+Untuk mempermudah pengujian alur verifikasi berkas, penilaian juri, dan kepesertaan di lingkungan staging (`https://staging.perkutut.web.id`), telah disediakan 1 akun default untuk masing-masing role:
+
+| Role | Email | Password | Deskripsi / Hak Akses |
+| :--- | :--- | :--- | :--- |
+| **Admin** | `admin@perkutut.web.id` | `PerkututCup2026!Admin` | Akses penuh ke portal verifikasi dokumen (`/dashboard/verifications/`) dan manajemen pengguna/juri (`/dashboard/users/`). |
+| **Juri** | `juri@perkutut.web.id` | `PerkututCup2026!Juri` | Akses ke portal penilaian karya (`/dashboard/jury/`). Otomatis di-bind ke seluruh cabang kompetisi aktif. |
+| **Peserta** | `peserta@perkutut.web.id` | `PerkututCup2026!Peserta` | Akun peserta dengan tim awal *Tim Garuda Perkutut* (Kode: `PKT-DEFAULT`, cabang Kriptografi, status `UNVERIFIED`). Siap untuk pengujian unggah berkas, resubmit, dan pengiriman karya. |
+
