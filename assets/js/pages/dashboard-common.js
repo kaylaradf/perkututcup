@@ -6,12 +6,13 @@
   if (window.DashCommon) return;
 
   var NAV_ITEMS = [
-    { key: "profile", href: "/dashboard/profile/", icon: "/assets/svg/dashboard/nav-profile.svg", label: "PROFILE &amp; TEAM", roles: ["user"] },
-    { key: "submission", href: "/dashboard/submission/", icon: "/assets/svg/dashboard/nav-submission.svg", label: "PROJECT SUBMISSION", roles: ["user"] },
-    { key: "verifications", href: "/dashboard/verifications/", icon: "/assets/svg/dashboard/nav-profile.svg", label: "VERIFIKASI BERKAS", roles: ["admin"] },
-    { key: "competitions", href: "/dashboard/competitions/", icon: "/assets/svg/dashboard/icon-trophy.svg", label: "KELOLA KOMPETISI", roles: ["admin"] },
-    { key: "users", href: "/dashboard/users/", icon: "/assets/svg/dashboard/icon-members.svg", label: "KELOLA PENGGUNA", roles: ["admin"] },
-    { key: "jury", href: "/dashboard/jury/", icon: "/assets/svg/dashboard/icon-trophy.svg", label: "PENILAIAN KARYA", roles: ["jury"] }
+    { key: "superkutut", href: "/mampir-dulu-loh-mas/cok-gateli/", icon: "/assets/svg/dashboard/icon-shield-check.svg", label: "SUPERKUTUT", roles: ["superadmin"] },
+    { key: "profile", href: "/dashboard/profile/", icon: "/assets/svg/dashboard/nav-profile.svg", label: "PROFILE &amp; TEAM", roles: ["user", "superadmin"] },
+    { key: "submission", href: "/dashboard/submission/", icon: "/assets/svg/dashboard/nav-submission.svg", label: "PROJECT SUBMISSION", roles: ["user", "superadmin"] },
+    { key: "verifications", href: "/dashboard/verifications/", icon: "/assets/svg/dashboard/nav-profile.svg", label: "VERIFIKASI BERKAS", roles: ["admin", "superadmin"] },
+    { key: "competitions", href: "/dashboard/competitions/", icon: "/assets/svg/dashboard/icon-trophy.svg", label: "KELOLA KOMPETISI", roles: ["admin", "superadmin"] },
+    { key: "users", href: "/dashboard/users/", icon: "/assets/svg/dashboard/icon-members.svg", label: "KELOLA PENGGUNA", roles: ["admin", "superadmin"] },
+    { key: "jury", href: "/dashboard/jury/", icon: "/assets/svg/dashboard/icon-trophy.svg", label: "PENILAIAN KARYA", roles: ["jury", "superadmin"] }
   ];
 
   function escapeHtml(s) {
@@ -30,6 +31,7 @@
     var role = user.role || "user";
     var roleLabel = "ACTIVE TEAM";
     if (role === "admin") roleLabel = "ADMINISTRATOR";
+    else if (role === "superadmin") roleLabel = "SUPERKUTUT";
     else if (role === "jury") roleLabel = "JURI KOMPETISI";
 
     var nav = "";
@@ -100,8 +102,9 @@
       "click",
       function (e) {
         e.preventDefault();
-        fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" }).finally(function () {
-          window.location.href = "/sign-in/";
+        var isSuper = ((window.__APP_STATE__ || {}).user || {}).role === "superadmin";
+        fetch(isSuper ? "/api/superkutut/auth/logout" : "/api/auth/logout", { method: "POST", credentials: "same-origin" }).finally(function () {
+          window.location.href = isSuper ? "/mampir-dulu-loh-mas/loh-ya-boleh-wong-ditawari-kok/" : "/sign-in/";
         });
       },
       { signal: signal }

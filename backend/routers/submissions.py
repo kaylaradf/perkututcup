@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Request, UploadFile, File, Form
 from fastapi.responses import FileResponse
 
 from core import (
+    audit,
     db,
     require_user,
     UPLOAD_DIR,
@@ -211,6 +212,7 @@ async def upload_submission(
             # Auto-assign to 1 jury using round-robin per competition
             assigned_jury_id = assign_submission_to_jury(conn, team_id, comp_id)
 
+    audit(request, "submission", "upload_submission", target_type="submission", target_id=sub_row["id"], detail={"original_name": filename, "file_size": len(content), "team_id": team_id, "notes": notes.strip() if notes else None})
     return {
         "ok": True,
         "message": "Karya berhasil disubmit dan dialokasikan ke juri untuk penilaian.",

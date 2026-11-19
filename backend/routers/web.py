@@ -12,7 +12,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from core import FRONTEND_DIR, current_user
+from core import FRONTEND_DIR, current_user, SUPER_BASE_PATH, SUPER_LOGIN_PATH, SUPER_DASH_PATH, _super_session
 
 router = APIRouter()
 
@@ -75,7 +75,7 @@ def app_shell_profile(request: Request):
     u = current_user(request)
     if u is None:
         return FileResponse(FRONTEND_DIR / "404.html", headers={"Cache-Control": "no-store"})
-    if u.get("role") != "user":
+    if u.get("role") not in ("user", "superadmin"):
         return RedirectResponse("/dashboard/verifications/" if u.get("role") == "admin" else "/dashboard/jury/", status_code=303)
     return serve_app_shell(request, target_path="/dashboard/profile/")
 
@@ -86,7 +86,7 @@ def app_shell_submission(request: Request):
     u = current_user(request)
     if u is None:
         return FileResponse(FRONTEND_DIR / "404.html", headers={"Cache-Control": "no-store"})
-    if u.get("role") != "user":
+    if u.get("role") not in ("user", "superadmin"):
         return RedirectResponse("/dashboard/verifications/" if u.get("role") == "admin" else "/dashboard/jury/", status_code=303)
     return serve_app_shell(request, target_path="/dashboard/submission/")
 
@@ -95,7 +95,7 @@ def app_shell_submission(request: Request):
 @router.get("/dashboard/competitions/")
 def app_shell_competitions(request: Request):
     u = current_user(request)
-    if u is None or u.get("role") != "admin":
+    if u is None or u.get("role") not in ("admin", "superadmin"):
         return FileResponse(FRONTEND_DIR / "404.html", headers={"Cache-Control": "no-store"})
     return serve_app_shell(request, target_path="/dashboard/competitions/")
 
@@ -104,7 +104,7 @@ def app_shell_competitions(request: Request):
 @router.get("/dashboard/users/")
 def app_shell_users(request: Request):
     u = current_user(request)
-    if u is None or u.get("role") != "admin":
+    if u is None or u.get("role") not in ("admin", "superadmin"):
         return FileResponse(FRONTEND_DIR / "404.html", headers={"Cache-Control": "no-store"})
     return serve_app_shell(request, target_path="/dashboard/users/")
 
@@ -113,7 +113,7 @@ def app_shell_users(request: Request):
 @router.get("/dashboard/verifications/")
 def app_shell_verifications(request: Request):
     u = current_user(request)
-    if u is None or u.get("role") != "admin":
+    if u is None or u.get("role") not in ("admin", "superadmin"):
         return FileResponse(FRONTEND_DIR / "404.html", headers={"Cache-Control": "no-store"})
     return serve_app_shell(request, target_path="/dashboard/verifications/")
 
@@ -122,10 +122,24 @@ def app_shell_verifications(request: Request):
 @router.get("/dashboard/jury/")
 def app_shell_jury(request: Request):
     u = current_user(request)
-    if u is None or u.get("role") not in ("jury", "admin"):
+    if u is None or u.get("role") not in ("jury", "admin", "superadmin"):
         return FileResponse(FRONTEND_DIR / "404.html", headers={"Cache-Control": "no-store"})
     return serve_app_shell(request, target_path="/dashboard/jury/")
 
+
+# ------------------------------------------------------------- superkutut shell
+@router.get(SUPER_LOGIN_PATH)
+def super_login_page(request: Request):
+    if _super_session(request) is not None:
+        return RedirectResponse(SUPER_DASH_PATH, status_code=303)
+    return FileResponse(FRONTEND_DIR / "mampir-dulu-loh-mas" / "loh-ya-boleh-wong-ditawari-kok" / "index.html", headers={"Cache-Control": "no-store", "X-Robots-Tag": "noindex"})
+
+
+@router.get(SUPER_DASH_PATH)
+def super_dashboard_page(request: Request):
+    if _super_session(request) is None:
+        return FileResponse(FRONTEND_DIR / "404.html", headers={"Cache-Control": "no-store"})
+    return serve_app_shell(request, target_path=SUPER_DASH_PATH)
 
 # ------------------------------------------------- static frontend + guard
 
@@ -149,13 +163,13 @@ def serve_static(page_path: str, request: Request):
             or page_path.startswith("dashboard/users")
             or page_path.startswith("dashboard/verifications")
         ):
-            if u.get("role") != "admin":
+            if u.get("role") not in ("admin", "superadmin"):
                 page_path = "404.html"
         elif page_path.startswith("dashboard/jury"):
-            if u.get("role") not in ("jury", "admin"):
+            if u.get("role") not in ("jury", "admin", "superadmin"):
                 page_path = "404.html"
         elif page_path.startswith(("dashboard/profile", "dashboard/submission")):
-            if u.get("role") != "user":
+            if u.get("role") not in ("user", "superadmin"):
                 return RedirectResponse("/dashboard/verifications/" if u.get("role") == "admin" else "/dashboard/jury/", status_code=303)
         elif page_path in ("dashboard", "dashboard/"):
             if u.get("role") == "admin":
@@ -165,6 +179,17 @@ def serve_static(page_path: str, request: Request):
             else:
                 return RedirectResponse("/dashboard/profile/", status_code=303)
 
+
+    # Superkutut: path tersembunyi — tanpa session super semua subpath = 404.
+    if page_path.startswith(SUPER_BASE_PATH.lstrip("/")):
+        norm = "/" + page_path.rstrip("/") + "/"
+        if norm == SUPER_LOGIN_PATH:
+            if _super_session(request) is not None:
+                return RedirectResponse(SUPER_DASH_PATH, status_code=303)
+            return FileResponse(FRONTEND_DIR / "mampir-dulu-loh-mas" / "loh-ya-boleh-wong-ditawari-kok" / "index.html", headers={"Cache-Control": "no-store", "X-Robots-Tag": "noindex"})
+        if norm == SUPER_DASH_PATH and _super_session(request) is not None:
+            return serve_app_shell(request, target_path=SUPER_DASH_PATH)
+        return FileResponse(FRONTEND_DIR / "404.html", headers={"Cache-Control": "no-store"})
     # Halaman auth: yang sudah punya session langsung dilempar ke dashboard sesuai role
     if page_path in ("sign-in", "sign-in/", "join", "join/"):
         u = current_user(request)
@@ -177,7 +202,7 @@ def serve_static(page_path: str, request: Request):
                 return RedirectResponse("/dashboard/profile/", status_code=303)
 
     candidate = FRONTEND_DIR / page_path
-    auth_or_dashboard = page_path.startswith(("dashboard", "sign-in", "join"))
+    auth_or_dashboard = page_path.startswith(("dashboard", "sign-in", "join", SUPER_BASE_PATH.lstrip("/")))
     headers = {"Cache-Control": "no-store"} if auth_or_dashboard else None
     if page_path and candidate.is_file():
         return FileResponse(candidate, headers=headers)

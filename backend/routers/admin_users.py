@@ -6,6 +6,7 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 from core import (
     PW_MAX_LEN,
     USER_ROLES,
+    audit,
     db,
     format_user,
     hash_password,
@@ -133,6 +134,7 @@ def admin_create_user(payload: AdminUserCreateIn, request: Request):
             ).fetchone()
     except psycopg.errors.UniqueViolation:
         raise HTTPException(status_code=409, detail="Email sudah terdaftar")
+    audit(request, "admin_users", "create_user", target_type="user", target_id=row["id"], detail={"email": email, "role": payload.role})
     return {"ok": True, "user": format_user(row)}
 
 
@@ -157,4 +159,5 @@ def admin_update_user(user_id: int, payload: AdminUserUpdateIn, request: Request
             ).fetchone()
         if payload.password is not None:
             conn.execute("UPDATE users SET password_hash = %s WHERE id = %s", (hash_password(payload.password), user_id))
+    audit(request, "admin_users", "update_user", target_type="user", target_id=user_id, detail={"fields": ["role"] if payload.role is not None else [], "role": payload.role, "password_reset": payload.password is not None})
     return {"ok": True, "user": format_user(row), "password_reset": payload.password is not None}

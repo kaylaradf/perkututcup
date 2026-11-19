@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from core import (
+    audit,
     MAX_FAILED_LOGINS,
     PW_MAX_LEN,
     _hash_token,
@@ -98,6 +99,7 @@ def register(request: Request, payload: RegisterIn, response: Response):
         raise HTTPException(status_code=409, detail={"email": ["Email sudah terdaftar"]})
 
     create_session(response, row["id"])
+    audit(request, "auth", "register", target_type="user", target_id=row["id"], detail={"email": payload.email.lower(), "competition": comp_slug}, actor={"id": row["id"], "email": payload.email.lower(), "role": "user"})
     res = {
         "user": {
             "id": row["id"],
@@ -126,8 +128,10 @@ def login(request: Request, payload: LoginIn, response: Response):
             (payload.email.lower(),),
         ).fetchone()
         if row is None:
+            audit(request, "auth", "login_failed", detail={"email": payload.email.lower(), "reason": "unknown_email"}, outcome="denied", actor={"email": payload.email.lower()})
             raise HTTPException(status_code=401, detail="Email atau kata sandi salah")
         if row["locked_at"] is not None:
+            audit(request, "auth", "login_failed", detail={"email": row["email"], "reason": "locked"}, outcome="denied", actor={"id": row["id"], "email": row["email"]})
             raise HTTPException(
                 status_code=423,
                 detail={"lockout": "Akun dikunci karena terlalu banyak percobaan gagal. Hubungi admin untuk membuka kembali."},
@@ -139,7 +143,9 @@ def login(request: Request, payload: LoginIn, response: Response):
                 (failed, failed, MAX_FAILED_LOGINS, row["id"]),
             )
             conn.commit()  # Persist the failure count before raising the HTTP error.
+            audit(request, "auth", "login_failed", detail={"email": row["email"], "reason": "wrong_password", "failed_count": failed}, outcome="denied", actor={"id": row["id"], "email": row["email"]})
             if failed >= MAX_FAILED_LOGINS:
+                audit(request, "auth", "account_locked", target_type="user", target_id=row["id"], detail={"email": row["email"], "failed_count": failed}, outcome="denied", actor={"id": row["id"], "email": row["email"]})
                 raise HTTPException(
                     status_code=423,
                     detail={"lockout": f"Akun dikunci setelah {MAX_FAILED_LOGINS} kali salah kata sandi. Hubungi admin untuk membuka kembali."},
@@ -151,6 +157,7 @@ def login(request: Request, payload: LoginIn, response: Response):
                 (row["id"],),
             )
     create_session(response, row["id"])
+    audit(request, "auth", "login_success", target_type="user", target_id=row["id"], actor={"id": row["id"], "email": row["email"], "role": "user"})
     return {"user": {"id": row["id"], "full_name": row["full_name"], "email": row["email"]}}
 
 
@@ -161,6 +168,7 @@ def logout(request: Request, response: Response):
         with db() as conn:
             conn.execute("DELETE FROM sessions WHERE id = %s", (_hash_token(token),))
     response.delete_cookie("perkutut_session", path="/")
+    audit(request, "auth", "logout")
     return {"ok": True}
 
 

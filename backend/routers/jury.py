@@ -2,7 +2,7 @@
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from core import db, require_jury, require_admin
+from core import audit, db, require_jury, require_admin
 
 router = APIRouter()
 
@@ -123,6 +123,7 @@ def evaluate_submission(team_id: int, payload: JuryEvaluateIn, request: Request)
                 (team_id, user["id"], payload.score, payload.feedback.strip() if payload.feedback else None),
             ).fetchone()
 
+    audit(request, "jury", "evaluate_submission", target_type="team", target_id=team_id, detail={"score": payload.score, "feedback": payload.feedback.strip() if payload.feedback else None})
     return {
         "ok": True,
         "message": f"Penilaian berhasil disimpan (Skor: {float(eval_row['score'])}).",
@@ -194,4 +195,5 @@ def set_jury_competitions(jury_user_id: int, payload: AdminJuryCompetitionsIn, r
                     (jury_user_id, cid),
                 )
 
+    audit(request, "jury", "assign_jury_competitions", target_type="user", target_id=jury_user_id, detail={"competition_ids": payload.competition_ids})
     return {"ok": True, "message": "Penugasan kompetisi juri berhasil diperbarui."}

@@ -11,6 +11,7 @@ from core import (
     MAX_DOC_SIZE,
     UPLOAD_DIR,
     assign_team_to_admin,
+    audit,
     check_and_update_team_verification,
     db,
     require_admin,
@@ -215,6 +216,7 @@ async def upload_document(
             # Re-evaluate team verification status
             team_v_status = check_and_update_team_verification(conn, team_id)
 
+    audit(request, "document", "upload_document", target_type="document", target_id=doc_row["id"], detail={"document_type": doc_type, "original_name": filename, "file_size": len(content), "team_id": team_id})
     return {
         "ok": True,
         "message": "Dokumen berhasil diunggah dan sedang menunggu verifikasi admin.",
@@ -410,6 +412,7 @@ def verify_document(document_id: int, payload: AdminDocumentVerifyIn, request: R
             # Auto-check if all required documents for this team are approved
             team_v_status = check_and_update_team_verification(conn, team_id)
 
+    audit(request, "verification", "approve_document" if stat == "APPROVED" else "reject_document", target_type="document", target_id=document_id, detail={"status": stat, "feedback": feedback})
     return {
         "ok": True,
         "message": f"Dokumen berhasil ditandai sebagai {stat}.",

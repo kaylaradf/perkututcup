@@ -4,7 +4,7 @@ import psycopg
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
-from core import db, require_user
+from core import audit, db, require_user
 
 router = APIRouter()
 
@@ -65,4 +65,5 @@ def update_me(payload: ProfileIn, request: Request):
     except psycopg.errors.UniqueViolation:
         raise HTTPException(status_code=409, detail={"email": ["Email sudah dipakai akun lain"]})
     row["birth_date"] = row["birth_date"].isoformat() if row["birth_date"] else None
+    audit(request, "profile", "update_profile", target_type="user", target_id=user["id"], detail={"fields": list(updates), "values": {k: (v.isoformat() if hasattr(v, "isoformat") else v) for k, v in updates.items()}})
     return {"user": row}

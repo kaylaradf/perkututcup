@@ -1,0 +1,236 @@
+"""Superkutut: god-mode dashboard API.
+
+Login terpisah (env credentials + captcha perkalian + TOTP), session cookie
+tersendiri, live audit log (SSE), stats, export CSV. Semua endpoint di sini
+require_superadmin kecuali auth. Aksi superadmin diaudit fail-closed.
+"""
+import csv
+import hmac
+import io
+import json
+import time
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
+
+from core import (
+    SUPERADMIN_USERNAME,
+    SUPERADMIN_PASSWORD,
+    SUPERADMIN_TOTP_SECRET,
+    SUPER_COOKIE,
+    SUPER_SESSION_TTL_HOURS,
+    AUDIT_RETENTION_DAYS,
+    _hash_token,
+    audit,
+    create_super_session,
+    db,
+    limiter,
+    require_captcha,
+    require_superadmin,
+    verify_super_totp,
+)
+
+router = APIRouter(prefix="/api/superkutut")
+
+
+class SuperLoginIn(BaseModel):
+    username: str = Field(min_length=1, max_length=100)
+    password: str = Field(min_length=1, max_length=200)
+    totp: str = Field(min_length=6, max_length=8)
+    captcha_id: str = Field(min_length=1)
+    captcha_answer: str = Field(min_length=1)
+
+
+@router.post("/auth/login")
+@limiter.limit("5/minute")
+def super_login(request: Request, payload: SuperLoginIn, response: Response):
+    actor = {"id": None, "email": payload.username, "role": "superadmin"}
+    require_captcha(payload)
+    ok_user = hmac.compare_digest(payload.username, SUPERADMIN_USERNAME)
+    ok_pass = hmac.compare_digest(payload.password, SUPERADMIN_PASSWORD)
+    if not (ok_user and ok_pass):
+        audit(request, "superkutut", "login_failed", detail={"username": payload.username, "reason": "credentials"}, outcome="denied", actor=actor, fail_closed=True)
+        raise HTTPException(status_code=401, detail="Username atau kata sandi salah")
+    if not SUPERADMIN_TOTP_SECRET:
+        audit(request, "superkutut", "login_failed", detail={"reason": "totp_not_configured"}, outcome="error", actor=actor, fail_closed=True)
+        raise HTTPException(status_code=503, detail="TOTP belum dikonfigurasi di server.")
+    if not verify_super_totp(payload.totp):
+        audit(request, "superkutut", "login_failed", detail={"username": payload.username, "reason": "totp"}, outcome="denied", actor=actor, fail_closed=True)
+        raise HTTPException(status_code=401, detail="Kode TOTP salah atau kedaluwarsa")
+    create_super_session(response)
+    audit(request, "superkutut", "login_success", actor=actor, fail_closed=True)
+    return {"ok": True, "user": {"username": SUPERADMIN_USERNAME, "role": "superadmin"}}
+
+
+@router.post("/auth/logout")
+def super_logout(request: Request, response: Response):
+    user = require_superadmin(request)
+    token = request.cookies.get(SUPER_COOKIE)
+    if token:
+        with db() as conn:
+            conn.execute("DELETE FROM sessions WHERE id = %s AND is_super", (_hash_token(token),))
+    response.delete_cookie(SUPER_COOKIE, path="/")
+    audit(request, "superkutut", "logout", actor=user, fail_closed=True)
+    return {"ok": True}
+
+
+@router.get("/auth/session")
+def super_session_info(request: Request):
+    token = request.cookies.get(SUPER_COOKIE)
+    if not token:
+        return {"authenticated": False}
+    with db() as conn:
+        row = conn.execute(
+            "SELECT expires_at FROM sessions WHERE id = %s AND is_super AND expires_at > now()",
+            (_hash_token(token),),
+        ).fetchone()
+    if not row:
+        return {"authenticated": False}
+    return {"authenticated": True, "user": {"username": SUPERADMIN_USERNAME, "role": "superadmin"}}
+
+
+LOG_COLS = "id, ts, actor_id, actor_email, actor_role, ip, user_agent, category, action, target_type, target_id, detail, outcome, method, path, status, duration_ms"
+
+
+def _log_filters(request: Request):
+    q = request.query_params
+    where, params = [], []
+    for col in ("category", "action", "outcome"):
+        if q.get(col):
+            where.append(f"{col} = %s")
+            params.append(q[col])
+    if q.get("actor_id"):
+        where.append("actor_id = %s")
+        params.append(int(q["actor_id"]))
+    if q.get("before_id"):
+        where.append("id < %s")
+        params.append(int(q["before_id"]))
+    if q.get("after_id"):
+        where.append("id > %s")
+        params.append(int(q["after_id"]))
+    if q.get("from"):
+        where.append("ts >= %s")
+        params.append(q["from"])
+    if q.get("to"):
+        where.append("ts <= %s")
+        params.append(q["to"])
+    if q.get("q"):
+        where.append("(actor_email ILIKE %s OR action ILIKE %s OR target_id ILIKE %s OR detail::text ILIKE %s OR path ILIKE %s)")
+        like = f"%{q['q']}%"
+        params.extend([like] * 5)
+    return (" WHERE " + " AND ".join(where)) if where else "", params
+
+
+def _serialize(rows):
+    out = []
+    for r in rows:
+        r = dict(r)
+        r["ts"] = r["ts"].isoformat() if r.get("ts") else None
+        out.append(r)
+    return out
+
+
+@router.get("/logs")
+def super_logs(request: Request):
+    require_superadmin(request)
+    limit = min(int(request.query_params.get("limit", 100)), 200)
+    clause, params = _log_filters(request)
+    order = "ORDER BY id ASC" if request.query_params.get("after_id") else "ORDER BY id DESC"
+    with db() as conn:
+        rows = conn.execute(f"SELECT {LOG_COLS} FROM audit_logs{clause} {order} LIMIT %s", params + [limit]).fetchall()
+    return {"logs": _serialize(rows)}
+
+
+@router.get("/logs/stream")
+def super_logs_stream(request: Request):
+    """SSE live tail: poll id > last_id tiap 2 detik. EventSource reconnect
+    otomatis mengirim Last-Event-ID sehingga tidak ada log terlewat."""
+    require_superadmin(request)
+    last_id = int(request.headers.get("last-event-id") or request.query_params.get("after_id") or 0)
+    if last_id == 0:
+        with db() as conn:
+            row = conn.execute("SELECT COALESCE(MAX(id), 0) AS m FROM audit_logs").fetchone()
+            last_id = row["m"]
+
+    def gen():
+        cursor = last_id
+        idle = 0
+        yield "retry: 3000\n\n"
+        while True:
+            with db() as conn:
+                rows = conn.execute(
+                    f"SELECT {LOG_COLS} FROM audit_logs WHERE id > %s ORDER BY id ASC LIMIT 100",
+                    (cursor,),
+                ).fetchall()
+            if rows:
+                idle = 0
+                for r in _serialize(rows):
+                    cursor = r["id"]
+                    yield f"id: {r['id']}\nevent: log\ndata: {json.dumps(r, ensure_ascii=False)}\n\n"
+            else:
+                idle += 1
+                if idle >= 8:  # heartbeat tiap ~16s agar proxy tidak memutus
+                    idle = 0
+                    yield ": keepalive\n\n"
+            time.sleep(2)
+
+    return StreamingResponse(gen(), media_type="text/event-stream", headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"})
+
+
+@router.get("/logs/export")
+def super_logs_export(request: Request):
+    user = require_superadmin(request)
+    clause, params = _log_filters(request)
+    with db() as conn:
+        rows = conn.execute(f"SELECT {LOG_COLS} FROM audit_logs{clause} ORDER BY id DESC LIMIT 10000", params).fetchall()
+    audit(request, "superkutut", "export_logs", detail={"rows": len(rows)}, actor=user, fail_closed=True)
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    cols = LOG_COLS.replace(" ", "").split(",")
+    w.writerow(cols)
+    for r in rows:
+        w.writerow([json.dumps(r[c], ensure_ascii=False, default=str) if c == "detail" else r[c] for c in cols])
+    return StreamingResponse(
+        iter([buf.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="superkutut-logs.csv"'},
+    )
+
+
+@router.get("/stats")
+def super_stats(request: Request):
+    require_superadmin(request)
+    with db() as conn:
+        s = {}
+        s["logins_24h"] = conn.execute("SELECT count(*) AS n FROM audit_logs WHERE action IN ('login_success') AND ts > now() - interval '24 hours'").fetchone()["n"]
+        s["login_failures_24h"] = conn.execute("SELECT count(*) AS n FROM audit_logs WHERE action = 'login_failed' AND ts > now() - interval '24 hours'").fetchone()["n"]
+        s["events_24h"] = conn.execute("SELECT count(*) AS n FROM audit_logs WHERE ts > now() - interval '24 hours'").fetchone()["n"]
+        s["uploads_24h"] = conn.execute("SELECT count(*) AS n FROM audit_logs WHERE action IN ('upload_document','upload_submission') AND ts > now() - interval '24 hours'").fetchone()["n"]
+        s["users_total"] = conn.execute("SELECT count(*) AS n FROM users").fetchone()["n"]
+        s["teams_unverified"] = conn.execute("SELECT count(*) AS n FROM teams WHERE verification_status != 'VERIFIED'").fetchone()["n"]
+        s["submissions_pending_jury"] = conn.execute(
+            """
+            SELECT count(*) AS n FROM submissions s
+            LEFT JOIN submission_evaluations se ON se.team_id = s.team_id
+            WHERE se.score IS NULL
+            """
+        ).fetchone()["n"]
+        s["per_hour"] = [
+            {"hour": r["h"].isoformat(), "n": r["n"]}
+            for r in conn.execute(
+                "SELECT date_trunc('hour', ts) AS h, count(*) AS n FROM audit_logs WHERE ts > now() - interval '24 hours' GROUP BY 1 ORDER BY 1"
+            ).fetchall()
+        ]
+        s["retention_days"] = AUDIT_RETENTION_DAYS
+    return s
+
+
+@router.post("/logs/purge")
+def super_logs_purge(request: Request):
+    user = require_superadmin(request)
+    with db() as conn:
+        n = conn.execute("DELETE FROM audit_logs WHERE ts < now() - make_interval(days => %s)", (AUDIT_RETENTION_DAYS,)).rowcount
+    audit(request, "superkutut", "purge_logs", detail={"deleted": n, "retention_days": AUDIT_RETENTION_DAYS}, actor=user, fail_closed=True)
+    return {"ok": True, "deleted": n}

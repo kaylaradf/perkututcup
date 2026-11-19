@@ -16,6 +16,7 @@ Struktur modular:
 Menjalankan: PYTHONPATH=backend uvicorn app:app (dari direktori backend).
 """
 import os
+import json
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -32,6 +33,7 @@ from routers import (
     submissions,
     jury,
     admin_users,
+    superkutut,
     web,
 )
 
@@ -62,6 +64,59 @@ def rate_limit_handler(request: Request, exc: RateLimitExceeded):
         headers={"Retry-After": str(getattr(exc, "retry_after", 60))},
     )
 
+
+# ------------------------------------------------------- audit: semua request API
+# Middleware mencatat SETIAP request /api/* (penggunaan seluruh fitur) tanpa
+# perlu menyentuh tiap router. Detail bernilai (before/after, file, skor, dsb.)
+# dicatat terpisah oleh handler via core.audit().
+import time as _time
+from core import current_user, audit as _audit, SUPERADMIN_USERNAME
+
+@app.middleware("http")
+async def audit_api_requests(request: Request, call_next):
+    path = request.url.path
+    if not path.startswith("/api/"):
+        return await call_next(request)
+    start = _time.monotonic()
+    # Resolusi actor sekali per request; handler memakai request.state.user.
+    try:
+        request.state.user = current_user(request)
+    except Exception:
+        request.state.user = None
+    response = await call_next(request)
+    dur = int((_time.monotonic() - start) * 1000)
+    actor = request.state.user
+    # Noise reduction: skip polling GET ringan yang tidak mengubah apa pun.
+    noisy = path in ("/api/auth/captcha", "/api/auth/session", "/api/superkutut/logs/stream", "/api/superkutut/logs")
+    if not (request.method == "GET" and noisy):
+        try:
+            ip = request.headers.get("cf-connecting-ip") or request.headers.get("x-forwarded-for", "").split(",")[0].strip() or (request.client.host if request.client else None)
+            from core import db as _db
+            with _db() as conn:
+                conn.execute(
+                    """
+                    INSERT INTO audit_logs (actor_id, actor_email, actor_role, ip, user_agent, category, action, detail, outcome, method, path, status, duration_ms)
+                    VALUES (%s, %s, %s, %s, %s, 'api', %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        (actor or {}).get("id"),
+                        (actor or {}).get("email"),
+                        (actor or {}).get("role"),
+                        ip,
+                        request.headers.get("user-agent", "")[:300],
+                        request.method + " " + path,
+                        json.dumps({"query": str(request.url.query)[:500]} if request.url.query else {}, ensure_ascii=False),
+                        "ok" if response.status_code < 400 else ("denied" if response.status_code in (401, 403, 423) else "error"),
+                        request.method,
+                        path,
+                        response.status_code,
+                        dur,
+                    ),
+                )
+        except Exception as e:
+            import sys
+            print(f"[audit-mw] {e}", file=sys.stderr)
+    return response
 
 @app.on_event("startup")
 def init_db():
@@ -111,6 +166,7 @@ app.include_router(teams.router)
 app.include_router(documents.router)
 app.include_router(submissions.router)
 app.include_router(jury.router)
+app.include_router(superkutut.router)
 
 # web TERAKHIR: mount /assets + catch-all /{page_path:path} tidak boleh
 # mendahului route API mana pun.

@@ -27,6 +27,18 @@ ALLOWED_SUB_EXTS = {".zip", ".tar.gz", ".tgz", ".pdf", ".pkt", ".pka", ".docx", 
 MAX_DOC_SIZE = 10 * 1024 * 1024  # 10 MB
 MAX_SUB_SIZE = 50 * 1024 * 1024  # 50 MB
 
+# ------------------------------------------------------------- superkutut
+# Kredensial superadmin TIDAK disimpan di DB users — murni env, diganti via .env.
+SUPERADMIN_USERNAME = os.environ.get("PERKUTUT_SUPERADMIN_USER", "superkutut")
+SUPERADMIN_PASSWORD = os.environ.get("PERKUTUT_SUPERADMIN_PASSWORD", "admin")
+SUPERADMIN_TOTP_SECRET = os.environ.get("PERKUTUT_SUPERADMIN_TOTP_SECRET", "").strip().upper().replace(" ", "")
+SUPER_SESSION_TTL_HOURS = 8
+SUPER_COOKIE = "perkutut_super_session"
+SUPER_BASE_PATH = "/mampir-dulu-loh-mas"
+SUPER_LOGIN_PATH = SUPER_BASE_PATH + "/loh-ya-boleh-wong-ditawari-kok/"
+SUPER_DASH_PATH = SUPER_BASE_PATH + "/cok-gateli/"
+AUDIT_RETENTION_DAYS = int(os.environ.get("PERKUTUT_AUDIT_RETENTION_DAYS", "180"))
+
 # ------------------------------------------------------------------ rate limit
 #
 # Anti brute-force: batasi percobaan auth per IP.
@@ -163,7 +175,31 @@ def create_session(response: Response, user_id: int) -> None:
     )
 
 
+def _super_session(request: Request):
+    """Session superkutut dari cookie terpisah; tidak berlaku di portal biasa."""
+    token = request.cookies.get(SUPER_COOKIE)
+    if not token:
+        return None
+    with db() as conn:
+        row = conn.execute(
+            "SELECT id FROM sessions WHERE id = %s AND is_super AND expires_at > now()",
+            (_hash_token(token),),
+        ).fetchone()
+    if not row:
+        return None
+    return {
+        "id": None,
+        "full_name": "Superkutut",
+        "email": SUPERADMIN_USERNAME,
+        "role": "superadmin",
+        "is_super": True,
+    }
+
+
 def current_user(request: Request):
+    su = _super_session(request)
+    if su is not None:
+        return su
     token = request.cookies.get("perkutut_session")
     if not token:
         return None
@@ -172,7 +208,7 @@ def current_user(request: Request):
             """
             SELECT u.id, u.full_name, u.email, COALESCE(u.role, 'user') AS role, s.expires_at
             FROM sessions s JOIN users u ON u.id = s.user_id
-            WHERE s.id = %s AND s.expires_at > now()
+            WHERE s.id = %s AND NOT s.is_super AND s.expires_at > now()
             """,
             (_hash_token(token),),
         ).fetchone()
@@ -188,16 +224,100 @@ def require_user(request: Request):
 
 def require_admin(request: Request):
     user = require_user(request)
-    if user.get("role") != "admin":
+    if user.get("role") not in ("admin", "superadmin"):
         raise HTTPException(status_code=403, detail="Akses ditolak: hak akses admin diperlukan")
     return user
 
 
 def require_jury(request: Request):
     user = require_user(request)
-    if user.get("role") not in ("jury", "admin"):
+    if user.get("role") not in ("jury", "admin", "superadmin"):
         raise HTTPException(status_code=403, detail="Akses ditolak: hak akses juri diperlukan")
     return user
+
+
+def require_superadmin(request: Request):
+    su = _super_session(request)
+    if su is None:
+        raise HTTPException(status_code=401, detail="Tidak terautentikasi")
+    return su
+
+
+def create_super_session(response: Response) -> None:
+    token = secrets.token_urlsafe(32)
+    with db() as conn:
+        # user_id NOT NULL: pakai akun admin pertama sebagai pemilik teknis baris;
+        # otoritas super ditentukan flag is_super, bukan user_id.
+        owner = conn.execute("SELECT id FROM users WHERE role = 'admin' ORDER BY id LIMIT 1").fetchone()
+        if owner is None:
+            owner = conn.execute("SELECT id FROM users ORDER BY id LIMIT 1").fetchone()
+        if owner is None:
+            raise HTTPException(status_code=500, detail="Tidak ada akun pemilik session.")
+        conn.execute(
+            "INSERT INTO sessions (id, user_id, expires_at, is_super) VALUES (%s, %s, %s, TRUE)",
+            (_hash_token(token), owner["id"], datetime.now(timezone.utc) + timedelta(hours=SUPER_SESSION_TTL_HOURS)),
+        )
+    response.set_cookie(
+        key=SUPER_COOKIE,
+        value=token,
+        httponly=True,
+        secure=COOKIE_SECURE,
+        samesite="strict",
+        max_age=SUPER_SESSION_TTL_HOURS * 3600,
+        path="/",
+    )
+
+
+def verify_super_totp(code: str) -> bool:
+    if not SUPERADMIN_TOTP_SECRET:
+        return False  # TOTP belum dikonfigurasi = login super ditolak (fail-closed)
+    import pyotp
+    try:
+        return pyotp.TOTP(SUPERADMIN_TOTP_SECRET).verify(code.strip(), valid_window=1)
+    except Exception:
+        return False
+
+
+# --------------------------------------------------------------- audit log
+
+def audit(request, category, action, *, target_type=None, target_id=None, detail=None, outcome="ok", actor=None, fail_closed=False):
+    """Catat aktivitas bernilai ke audit_logs. Best-effort: kegagalan insert tidak
+    menggagalkan request bisnis — kecuali fail_closed (aksi superadmin)."""
+    import json as _json
+    import sys
+    try:
+        if actor is None and request is not None:
+            actor = getattr(request.state, "user", None)
+        actor = actor or {}
+        ip = None
+        ua = None
+        if request is not None:
+            ip = request.headers.get("cf-connecting-ip") or request.headers.get("x-forwarded-for", "").split(",")[0].strip() or (request.client.host if request.client else None)
+            ua = request.headers.get("user-agent", "")[:300]
+        with db() as conn:
+            conn.execute(
+                """
+                INSERT INTO audit_logs (actor_id, actor_email, actor_role, ip, user_agent, category, action, target_type, target_id, detail, outcome)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    actor.get("id"),
+                    actor.get("email"),
+                    actor.get("role"),
+                    ip,
+                    ua,
+                    category,
+                    action,
+                    target_type,
+                    str(target_id) if target_id is not None else None,
+                    _json.dumps(detail or {}, default=str, ensure_ascii=False),
+                    outcome,
+                ),
+            )
+    except Exception as e:
+        print(f"[audit] insert gagal: {e}", file=sys.stderr)
+        if fail_closed:
+            raise HTTPException(status_code=500, detail="Audit gagal; aksi dibatalkan.")
 
 
 # -------------------------------------------------------- competition helpers

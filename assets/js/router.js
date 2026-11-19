@@ -49,9 +49,10 @@
       var target = norm(path);
       var role = ((window.__APP_STATE__ || {}).user || {}).role || "user";
       var adminOnly = ["/dashboard/competitions/", "/dashboard/users/", "/dashboard/verifications/"];
-      if ((adminOnly.indexOf(target) !== -1 && role !== "admin") ||
+      if ((adminOnly.indexOf(target) !== -1 && role !== "admin" && role !== "superadmin") ||
           (target === "/dashboard/jury/" && role === "user") ||
-          ((target === "/dashboard/profile/" || target === "/dashboard/submission/") && role !== "user")) {
+          ((target === "/dashboard/profile/" || target === "/dashboard/submission/") && role !== "user" && role !== "superadmin") ||
+          (target === "/mampir-dulu-loh-mas/cok-gateli/" && role !== "superadmin")) {
         window.location.replace(role === "admin" ? "/dashboard/verifications/" : role === "jury" ? "/dashboard/jury/" : "/dashboard/profile/");
         return;
       }

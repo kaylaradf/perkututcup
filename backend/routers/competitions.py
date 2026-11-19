@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field, field_validator
 
 from core import (
+    audit,
     db,
     limiter,
     require_user,
@@ -76,6 +77,7 @@ def register_competition(slug: str, request: Request, payload: CompetitionRegist
         with conn.transaction():
             team_row = bind_user_to_competition(conn, user["id"], comp, team_name)
 
+    audit(request, "competition", "register", target_type="team", target_id=team_row["id"], detail={"slug": slug, "team_id": team_row["id"]})
     return {
         "ok": True,
         "message": f"Berhasil mendaftar kompetisi {comp['name']}.",
@@ -239,6 +241,7 @@ def admin_create_competition(payload: AdminCompetitionCreateIn, request: Request
     comp = format_competition(row)
     comp["teams_count"] = 0
     comp["participants_count"] = 0
+    audit(request, "competition", "create_competition", target_type="competition", target_id=comp["id"], detail={"slug": payload.slug, "name": payload.name})
     return {"ok": True, "competition": comp}
 
 
@@ -363,6 +366,7 @@ def admin_update_competition(comp_id_or_slug: str, payload: AdminCompetitionUpda
     comp["teams_count"] = stats["teams_count"]
     comp["participants_count"] = stats["participants_count"]
     comp["created_at"] = updated["created_at"].isoformat() if updated.get("created_at") else None
+    audit(request, "competition", "update_competition", target_type="competition", target_id=current["id"], detail={"changed": payload.model_dump(exclude_unset=True)})
     return {"ok": True, "competition": comp}
 
 
@@ -401,6 +405,7 @@ def admin_delete_competition(comp_id_or_slug: str, request: Request):
 
         conn.execute("DELETE FROM competitions WHERE id = %s", (current["id"],))
 
+    audit(request, "competition", "delete_competition", target_type="competition", target_id=current["id"], detail={"slug": current["slug"], "name": current["name"]})
     return {
         "ok": True,
         "message": f"Kompetisi '{current['name']}' berhasil dihapus.",

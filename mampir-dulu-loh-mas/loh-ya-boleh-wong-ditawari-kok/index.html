@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0b0c10" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Masuk</title>
+  <link rel="icon" type="image/svg+xml" href="/assets/svg/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&family=Poppins:wght@400;500;700&family=Space+Mono&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/auth-motion.css" />
+</head>
+<body class="auth-body">
+  <main class="auth-screen">
+    <section class="auth-card" aria-labelledby="auth-title">
+      <h1 class="auth-title" id="auth-title">Masuk</h1>
+      <p class="auth-subtitle">Akses terbatas.</p>
+
+      <form class="auth-form" id="super-form" novalidate>
+        <label class="auth-field" for="su-user">
+          <span>Username</span>
+          <span class="auth-control">
+            <input id="su-user" name="username" type="text" autocomplete="username" placeholder="Username" maxlength="100" required />
+          </span>
+        </label>
+
+        <label class="auth-field" for="su-pass">
+          <span>Kata Sandi</span>
+          <span class="auth-control">
+            <input id="su-pass" name="password" type="password" autocomplete="current-password" placeholder="Kata sandi" maxlength="200" required />
+            <button class="auth-password-toggle" type="button" id="su-toggle" aria-label="Tampilkan kata sandi" aria-pressed="false">
+              <img src="/assets/svg/icon-eye.svg" width="14" height="14" alt="" />
+            </button>
+          </span>
+        </label>
+
+        <label class="auth-field" for="su-totp">
+          <span>Kode TOTP (6 digit)</span>
+          <span class="auth-control">
+            <input id="su-totp" name="totp" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="123456" maxlength="6" pattern="[0-9]{6}" required />
+          </span>
+        </label>
+
+        <div class="auth-field auth-field--captcha">
+          <span class="captcha-question" id="su-captcha-question">Memuat soal verifikasi…</span>
+          <span class="auth-control">
+            <input id="su-captcha" name="captchaAnswer" type="text" inputmode="numeric" autocomplete="off" placeholder="Jawaban" aria-label="Jawaban verifikasi" maxlength="4" required />
+            <button class="auth-captcha-refresh" type="button" id="su-captcha-refresh" aria-label="Ganti soal">
+              <img src="/assets/svg/icon-refresh.svg" width="14" height="14" alt="" />
+            </button>
+          </span>
+        </div>
+
+        <button class="auth-submit" type="submit" id="su-submit">Masuk</button>
+        <p class="auth-message" id="su-message" role="alert" aria-live="polite"></p>
+      </form>
+    </section>
+  </main>
+  <script>
+  (function () {
+    "use strict";
+    var form = document.getElementById("super-form");
+    var msg = document.getElementById("su-message");
+    var qEl = document.getElementById("su-captcha-question");
+    var captchaId = null;
+
+    function loadCaptcha() {
+      qEl.textContent = "Memuat soal verifikasi…";
+      fetch("/api/auth/captcha").then(function (r) { return r.json(); }).then(function (d) {
+        captchaId = d.id;
+        qEl.textContent = d.question;
+      }).catch(function () { qEl.textContent = "Gagal memuat soal — klik ↻ untuk coba lagi."; });
+    }
+    loadCaptcha();
+    document.getElementById("su-captcha-refresh").addEventListener("click", loadCaptcha);
+
+    document.getElementById("su-toggle").addEventListener("click", function () {
+      var p = document.getElementById("su-pass");
+      var show = p.type === "password";
+      p.type = show ? "text" : "password";
+      this.setAttribute("aria-pressed", String(show));
+    });
+
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      msg.textContent = "";
+      if (!form.reportValidity()) return;
+      if (!captchaId) { msg.textContent = "Soal verifikasi belum termuat."; return; }
+      var btn = document.getElementById("su-submit");
+      btn.disabled = true;
+      fetch("/api/superkutut/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          username: form.username.value.trim(),
+          password: form.password.value,
+          totp: form.totp.value.trim(),
+          captcha_id: captchaId,
+          captcha_answer: form.captchaAnswer.value.trim()
+        })
+      }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, data: d }; }); })
+        .then(function (res) {
+          if (res.ok) {
+            window.location.href = "/mampir-dulu-loh-mas/cok-gateli/";
+            return;
+          }
+          var d = res.data.detail;
+          msg.textContent = typeof d === "string" ? d : (d && (d.captcha || d.lockout)) || "Gagal masuk.";
+          loadCaptcha();
+          form.captchaAnswer.value = "";
+          btn.disabled = false;
+        })
+        .catch(function () { msg.textContent = "Tidak dapat menghubungi server."; btn.disabled = false; });
+    });
+  })();
+  </script>
+</body>
+</html>

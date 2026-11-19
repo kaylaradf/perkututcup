@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, EmailStr, Field
 
-from core import WHATSAPP_GROUP_URL, db, is_competition_open, require_user
+from core import WHATSAPP_GROUP_URL, audit, db, is_competition_open, require_user
 
 router = APIRouter()
 
@@ -183,6 +183,7 @@ def join_team_by_code(payload: TeamJoinIn, request: Request):
                 (team_row["id"], user["id"], comp_id),
             )
 
+    audit(request, "team", "join_team", target_type="team", target_id=team_row["id"], detail={"code": code})
     return {
         "ok": True,
         "message": f"Berhasil bergabung dengan tim {team_row.get('name') or team_row['code']} ({team_row['comp_name']}).",
@@ -296,6 +297,7 @@ def add_team_member(payload: TeamAddMemberIn, request: Request):
                 (team_row["id"], target_user["id"], comp_id),
             )
 
+    audit(request, "team", "add_member", target_type="team", target_id=team_row["id"], detail={"email": target_email, "team_id": team_row["id"]})
     return {
         "ok": True,
         "message": f"Berhasil menambahkan {target_user['full_name']} ke dalam tim.",
@@ -379,6 +381,7 @@ def remove_team_member(member_user_id: int, request: Request, competition_slug: 
                 (team_row["id"], member_user_id),
             )
 
+    audit(request, "team", "remove_member", target_type="team", target_id=team_row["id"], detail={"member_user_id": member_user_id, "team_id": team_row["id"]})
     return {"ok": True, "message": "Anggota berhasil dikeluarkan dari tim."}
 
 
@@ -442,6 +445,7 @@ def leave_team(request: Request, competition_slug: str | None = None):
                     )
                 # Solo leader: tim dibubarkan
                 conn.execute("DELETE FROM teams WHERE id = %s", (team_row["id"],))
+                audit(request, "team", "disband_team", target_type="team", target_id=team_row["id"], detail={"team_id": team_row["id"]})
                 return {"ok": True, "message": "Tim berhasil dibubarkan."}
 
             conn.execute(
@@ -449,6 +453,7 @@ def leave_team(request: Request, competition_slug: str | None = None):
                 (team_row["id"], user["id"]),
             )
 
+    audit(request, "team", "leave_team", target_type="team", target_id=team_row["id"], detail={"team_id": team_row["id"]})
     return {"ok": True, "message": "Berhasil keluar dari tim."}
 
 
@@ -494,4 +499,5 @@ def update_team_name(payload: TeamUpdateIn, request: Request):
                 (name, team_row["id"]),
             )
 
+    audit(request, "team", "rename_team", target_type="team", target_id=team_row["id"], detail={"old": team_row["name"], "new": name})
     return {"ok": True, "message": "Nama tim berhasil diperbarui.", "name": name}
