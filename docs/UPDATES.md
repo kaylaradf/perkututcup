@@ -113,3 +113,10 @@ Penyelesaian fitur administrasi kompetisi berbasis RBAC server-side, manajemen a
   - `PATCH /api/team`: ketua tim dapat memperbarui nama tim.
 - **Integrasi UI Dashboard:** Kartu *MY TEAM* pada `dashboard/profile/index.html` kini interaktif: tombol salin kode tim, indikator kuota, badge jenis kompetisi, formulir tambah anggota via email, formulir gabung tim dengan kode, dan aksi hapus/keluar tim. Menu *MANAGE COMPETITIONS* otomatis terbuka untuk pengguna dengan role `'admin'`.
 - **Kompatibilitas:** Tidak mengubah kontrak awal; seluruh endpoint dan skema v1/v2 tetap aman dan berjalan normal.
+
+## v3.0 — Superkutut (god-mode) + audit log menyeluruh
+- Dashboard & login terpisah di path tersembunyi `/mampir-dulu-loh-mas/…` (lihat README §Superkutut).
+- Kredensial env (`PERKUTUT_SUPERADMIN_USER/PASSWORD/TOTP_SECRET`), login username+password+captcha perkalian+TOTP; session cookie terpisah (Strict, 8 jam).
+- `audit_logs` (migrasi 0006): middleware mencatat semua request API; event auth (login sukses/gagal+alasan, lockout, register, logout); detail value-level di semua mutasi (profil, tim, dokumen, verifikasi, kompetisi, submisi, juri, admin users).
+- Live log SSE + filter + export CSV + stats 24 jam; retensi 180 hari (endpoint purge).
+- Superadmin diterima di semua guard server/client dan seluruh halaman dashboard.

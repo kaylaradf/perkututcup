@@ -105,6 +105,29 @@ server (redirect/404 di `routers/web.py`) + client (`router.js`).
 
 Tidak ada role `committee` (dihapus di migrasi 0005).
 
+### Superkutut (superadmin)
+
+Satu login dengan SEMUA privilege role, plus live audit log seluruh aktivitas.
+
+- Login: `/mampir-dulu-loh-mas/loh-ya-boleh-wong-ditawari-kok/`
+  (username + kata sandi + captcha perkalian + **TOTP 6 digit**).
+- Dashboard: `/mampir-dulu-loh-mas/cok-gateli/` — live log SSE (filter kategori/
+  outcome/pencarian, jeda, export CSV), stats 24 jam, dan akses penuh ke semua
+  halaman dashboard lain dari sidebar yang sama.
+- Kredensial **murni env** (tidak di DB, tidak bisa dibuat via Kelola Pengguna):
+  `PERKUTUT_SUPERADMIN_USER`, `PERKUTUT_SUPERADMIN_PASSWORD`,
+  `PERKUTUT_SUPERADMIN_TOTP_SECRET` (base32 A-Z2-7, kelipatan 8, min 16 char;
+  contoh mudah diingat 32 char: `GILAKAMUKAMUYANGGILAKAMUKAMUYANG` — masukkan
+  manual/QR di https://totp.danhersam.com/#/ lalu scan ke authenticator).
+  TOTP kosong = login super ditolak (fail-closed). Ganti semua nilai via `.env`.
+- Session cookie terpisah `perkutut_super_session` (HttpOnly, SameSite=Strict,
+  8 jam); tanpa session super, seluruh path `mampir-dulu-loh-mas` = 404.
+- Audit: tabel `audit_logs` (migrasi 0006) — middleware mencatat semua request
+  API; event auth lengkap (login gagal + alasan, lockout); detail value-level
+  (before/after) di setiap mutasi. Retensi `PERKUTUT_AUDIT_RETENTION_DAYS`
+  (default 180) via `POST /api/superkutut/logs/purge`. Aksi superadmin diaudit
+  fail-closed. Password/hash/token tidak pernah masuk log.
+
 Alur inti:
 
 1. Daftar (`/join/`) / masuk (`/sign-in/`) dengan CAPTCHA → session cookie HttpOnly.
