@@ -114,8 +114,8 @@
   /* SweetAlert2 wrappers: themed dialogs/toasts replacing native alert/confirm. */
   function swalBase() {
     return Swal.mixin({
-      background: "var(--dash-surface, #14161f)",
-      color: "var(--dash-text-body, #ffe8d9)",
+      background: "var(--dash-swal-bg, #171226)",
+      color: "var(--dash-swal-text, #ffe8d9)",
       confirmButtonColor: "#8644a2",
       cancelButtonColor: "#4a4458"
     });

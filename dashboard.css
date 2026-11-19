@@ -1860,3 +1860,13 @@ input[type="date"].input {
 [data-theme="light"] .metric-value { color: var(--dash-text-primary); }
 [data-theme="light"] .jm-flag.is-ok { color: #15803d; }
 [data-theme="light"] .jm-flag.is-wait { color: #a16207; }
+
+/* ——— SweetAlert2: opaque surfaces (translucent --dash-surface bleeds page content through dialogs) ——— */
+:root {
+  --dash-swal-bg:   #171226;
+  --dash-swal-text: #ffe8d9;
+}
+[data-theme="light"] {
+  --dash-swal-bg:   #ffffff;
+  --dash-swal-text: #2d1f52;
+}
