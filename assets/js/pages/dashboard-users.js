@@ -160,7 +160,7 @@
       try {
         var sessionRes = await fetch('/api/auth/session', { credentials:'same-origin', signal: signal });
         var sessionData = await sessionRes.json();
-        if (!sessionData.authenticated || !sessionData.user || sessionData.user.role !== 'admin') { unauthView.hidden=false; return; }
+        if (!sessionData.authenticated || !sessionData.user || !['admin','superadmin'].includes(sessionData.user.role)) { unauthView.hidden=false; return; }
         if (userNameEl) userNameEl.textContent = sessionData.user.full_name || 'Admin Portal';
         adminView.hidden = false;
 

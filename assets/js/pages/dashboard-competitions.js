@@ -420,7 +420,7 @@
       try {
         const sessionRes = await fetch("/api/auth/session", { credentials: "same-origin", signal: signal });
         const sessionData = await sessionRes.json();
-        if (!sessionData.authenticated || sessionData.user?.role !== "admin") {
+        if (!sessionData.authenticated || !["admin", "superadmin"].includes(sessionData.user?.role)) {
           adminView.hidden = true;
           unauthView.hidden = false;
           return;

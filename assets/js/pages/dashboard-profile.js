@@ -381,7 +381,7 @@
         if (signal.aborted) return;
         currentProfileUser = ds[0].user || {};
         fillForm(currentProfileUser);
-        if (currentProfileUser.role && currentProfileUser.role !== 'user') {
+        if (currentProfileUser.role && currentProfileUser.role !== 'user' && currentProfileUser.role !== 'superadmin') {
           window.location.replace(currentProfileUser.role === 'admin' ? '/dashboard/verifications/' : '/dashboard/jury/');
           return;
         }
