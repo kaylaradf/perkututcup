@@ -296,7 +296,7 @@
         '<section class="card" style="padding:1.4rem;">' +
         '  <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px;">' +
         "    <div>" +
-        '      <h3 style="margin:0 0 0.3rem; font-size:1.1rem; color:var(--cream);">' + escapeHtml(t.team_name || t.track) + ' <small style="color:var(--dash-text-muted); font-size:0.8rem; font-family:var(--font-mono);">(' + escapeHtml(t.team_code) + ")</small></h3>" +
+        '      <h3 style="margin:0 0 0.3rem; font-size:1.1rem; color:var(--dash-text-primary);">' + escapeHtml(t.team_name || t.track) + ' <small style="color:var(--dash-text-muted); font-size:0.8rem; font-family:var(--font-mono);">(' + escapeHtml(t.team_code) + ")</small></h3>" +
         '      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:0.4rem;">' +
         '        <span style="font-size:0.75rem; color:var(--soft-violet); font-weight:700;">' + escapeHtml(t.competition_name || t.track) + "</span> • " +
         adminBadge +

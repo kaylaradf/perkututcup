@@ -104,10 +104,10 @@
         '    <span>HASIL PENILAIAN DEWAN JURI</span>' +
         '  </h3>' +
         '  <div style="display:flex; align-items:baseline; gap:10px; margin:0.8rem 0;">' +
-        '    <span style="font-size:2.8rem; font-weight:800; font-family:var(--font-heading); color:var(--cream);">' + evalData.score + '</span>' +
+        '    <span style="font-size:2.8rem; font-weight:800; font-family:var(--font-heading); color:var(--dash-text-primary);">' + evalData.score + '</span>' +
         '    <span style="font-size:1.1rem; color:var(--dash-text-muted); font-family:var(--font-mono);">/ 100</span>' +
         '  </div>' +
-        (evalData.feedback ? '  <p style="margin:0.8rem 0 0; font-size:0.85rem; color:var(--cream-muted); border-top:1px solid rgba(255,255,255,0.08); padding-top:0.8rem;"><strong>Catatan Evaluasi Juri:</strong><br />' + escapeHtml(evalData.feedback) + '</p>' : '') +
+        (evalData.feedback ? '  <p style="margin:0.8rem 0 0; font-size:0.85rem; color:var(--dash-text-body); border-top:1px solid var(--dash-border-subtle); padding-top:0.8rem;"><strong>Catatan Evaluasi Juri:</strong><br />' + escapeHtml(evalData.feedback) + '</p>' : '') +
         '</div>';
     } else if (sub) {
       evalBox =
@@ -120,16 +120,16 @@
     var subInfoBox = "";
     if (sub) {
       subInfoBox =
-        '<div style="background:rgba(255,255,255,0.03); border:1px solid var(--dash-border-mid); border-radius:10px; padding:1.2rem; margin-bottom:1.5rem;">' +
+        '<div style="background:var(--dash-upload-item-bg); border:1px solid var(--dash-border-mid); border-radius:10px; padding:1.2rem; margin-bottom:1.5rem;">' +
         '  <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">' +
         '    <div>' +
         '      <span style="font-size:0.7rem; color:var(--soft-violet); font-family:var(--font-mono); font-weight:700;">KARYA YANG SUDAH DIUNGGAH</span>' +
-        '      <h4 style="margin:0.2rem 0; font-size:1rem; color:var(--cream);">' + escapeHtml(sub.original_name) + '</h4>' +
+        '      <h4 style="margin:0.2rem 0; font-size:1rem; color:var(--dash-text-primary);">' + escapeHtml(sub.original_name) + '</h4>' +
         '      <span style="font-size:0.72rem; color:var(--dash-text-muted); font-family:var(--font-mono);">Ukuran: ' + (sub.file_size ? (sub.file_size / 1024 / 1024).toFixed(2) + ' MB' : '—') + ' • Diunggah: ' + (sub.submitted_at ? new Date(sub.submitted_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) : '—') + '</span>' +
         '    </div>' +
         '    <a class="btn-save" href="' + sub.download_url + '" download style="padding:0.45rem 1rem; font-size:0.75rem; text-decoration:none;">UNDUH SUBMISI ⬇</a>' +
         '  </div>' +
-        (sub.notes ? '  <p style="margin:0.8rem 0 0; font-size:0.78rem; color:var(--dash-text-muted); border-top:1px solid rgba(255,255,255,0.05); padding-top:0.6rem;"><strong>Catatan:</strong> ' + escapeHtml(sub.notes) + '</p>' : '') +
+        (sub.notes ? '  <p style="margin:0.8rem 0 0; font-size:0.78rem; color:var(--dash-text-muted); border-top:1px solid var(--dash-border-subtle); padding-top:0.6rem;"><strong>Catatan:</strong> ' + escapeHtml(sub.notes) + '</p>' : '') +
         '</div>';
     }
 

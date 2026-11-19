@@ -108,7 +108,7 @@
 '        <p class="proof-hint" id="password-hint">Password mengikuti kebijakan aplikasi. Password/hash tidak pernah ditampilkan kembali.</p>' + "\n" +
 '        <div id="jury-comp-wrap" class="field" hidden style="margin-top:0.8rem;">' + "\n" +
 '          <span>CABANG KOMPETISI YANG DIAMPU (KHUSUS JURI)</span>' + "\n" +
-'          <div id="jury-comp-checkboxes" style="display:flex; flex-wrap:wrap; gap:10px; margin-top:0.4rem; padding:0.6rem; border:1px solid var(--dash-border-mid); border-radius:8px; background:rgba(255,255,255,0.02);"></div>' + "\n" +
+'          <div id="jury-comp-checkboxes" style="display:flex; flex-wrap:wrap; gap:10px; margin-top:0.4rem; padding:0.6rem; border:1px solid var(--dash-border-mid); border-radius:8px; background:var(--dash-upload-item-bg);"></div>' + "\n" +
 '        </div>' + "\n" +
 '        <div id="user-info" class="proof-hint" hidden></div>' + "\n" +
 '        <div style="display:flex; justify-content:flex-end; gap:0.8rem; margin-top:1.5rem;">' + "\n" +

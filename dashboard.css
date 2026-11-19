@@ -173,6 +173,9 @@
   --dash-file-small-color: #b45309;
   --dash-metric-link:      #0d7a5f;
   --dash-inline-link:      #0d7a5f;
+  /* --lavender (#c7b8e0) terlalu pucat di atas putih — override lokal agar
+     semua teks aksen (13 pemakaian) tetap terbaca di light mode. */
+  --lavender:              #6d3f96;
   --dash-theme-color:      #f4f1ff;
 }
 
@@ -1844,3 +1847,16 @@ input[type="date"].input {
 .su-m { color: #c9d1d9; }
 
 .su-dim { color: #484f58; font-style: italic; }
+
+/* ——— Light mode: status colors need darker shades on white ——— */
+[data-theme="light"] .vdoc-badge.is-approved,
+[data-theme="light"] .vm-flag.is-ok { color: #15803d; }
+[data-theme="light"] .vdoc-badge.is-pending,
+[data-theme="light"] .vm-flag.is-wait { color: #a16207; }
+[data-theme="light"] .vdoc-badge.is-rejected { color: #b91c1c; }
+[data-theme="light"] .vdoc-btn.is-approve { color: #15803d; }
+[data-theme="light"] .vdoc-btn.is-reject { color: #b91c1c; }
+[data-theme="light"] .btn-danger { color: #b91c1c; }
+[data-theme="light"] .metric-value { color: var(--dash-text-primary); }
+[data-theme="light"] .jm-flag.is-ok { color: #15803d; }
+[data-theme="light"] .jm-flag.is-wait { color: #a16207; }
