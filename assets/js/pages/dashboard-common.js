@@ -6,12 +6,12 @@
   if (window.DashCommon) return;
 
   var NAV_ITEMS = [
-    { key: "profile", href: "/dashboard/profile/", icon: "/assets/svg/dashboard/nav-profile.svg", label: "PROFILE &amp; TEAM", roles: ["user", "admin"] },
-    { key: "submission", href: "/dashboard/submission/", icon: "/assets/svg/dashboard/nav-submission.svg", label: "PROJECT SUBMISSION", roles: ["user", "admin"] },
+    { key: "profile", href: "/dashboard/profile/", icon: "/assets/svg/dashboard/nav-profile.svg", label: "PROFILE &amp; TEAM", roles: ["user"] },
+    { key: "submission", href: "/dashboard/submission/", icon: "/assets/svg/dashboard/nav-submission.svg", label: "PROJECT SUBMISSION", roles: ["user"] },
     { key: "verifications", href: "/dashboard/verifications/", icon: "/assets/svg/dashboard/nav-profile.svg", label: "VERIFIKASI BERKAS", roles: ["admin"] },
     { key: "competitions", href: "/dashboard/competitions/", icon: "/assets/svg/dashboard/icon-trophy.svg", label: "KELOLA KOMPETISI", roles: ["admin"] },
     { key: "users", href: "/dashboard/users/", icon: "/assets/svg/dashboard/icon-members.svg", label: "KELOLA PENGGUNA", roles: ["admin"] },
-    { key: "jury", href: "/dashboard/jury/", icon: "/assets/svg/dashboard/icon-trophy.svg", label: "PENILAIAN KARYA", roles: ["jury", "admin"] }
+    { key: "jury", href: "/dashboard/jury/", icon: "/assets/svg/dashboard/icon-trophy.svg", label: "PENILAIAN KARYA", roles: ["jury"] }
   ];
 
   function escapeHtml(s) {

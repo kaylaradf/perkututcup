@@ -2601,6 +2601,12 @@ def serve_app_shell(request: Request, target_path: str | None = None):
         html = html.replace("<!-- __APP_STATE__ injected by server -->", inject, 1)
     elif "</head>" in html:
         html = html.replace("</head>", inject + "\n</head>", 1)
+    # Cache-bust JS/CSS: Cloudflare edge caches /assets for 4h; mtime query forces fresh fetch after deploys.
+    def _bust(m):
+        p = FRONTEND_DIR / m.group(2).lstrip("/")
+        v = int(p.stat().st_mtime) if p.is_file() else 0
+        return m.group(1) + m.group(2) + "?v=" + str(v) + m.group(3)
+    html = re.sub(r'((?:src|href)=")(/assets/[^"?]+|/(?:styles|dashboard|auth-motion)\.css)(")', _bust, html)
     return HTMLResponse(html, headers={"Cache-Control": "no-store"})
 
 
@@ -2634,7 +2640,8 @@ def app_shell_profile(request: Request):
     u = current_user(request)
     if u is None:
         return FileResponse(FRONTEND_DIR / "404.html", headers={"Cache-Control": "no-store"})
-    # Serve shell directly with original path for deep-link/refresh (preserves guard).
+    if u.get("role") != "user":
+        return RedirectResponse("/dashboard/verifications/" if u.get("role") == "admin" else "/dashboard/jury/", status_code=303)
     return serve_app_shell(request, target_path="/dashboard/profile/")
 
 
@@ -2644,6 +2651,8 @@ def app_shell_submission(request: Request):
     u = current_user(request)
     if u is None:
         return FileResponse(FRONTEND_DIR / "404.html", headers={"Cache-Control": "no-store"})
+    if u.get("role") != "user":
+        return RedirectResponse("/dashboard/verifications/" if u.get("role") == "admin" else "/dashboard/jury/", status_code=303)
     return serve_app_shell(request, target_path="/dashboard/submission/")
 
 
@@ -2707,6 +2716,9 @@ def serve_static(page_path: str, request: Request):
         elif page_path.startswith("dashboard/jury"):
             if u.get("role") not in ("jury", "admin"):
                 page_path = "404.html"
+        elif page_path.startswith(("dashboard/profile", "dashboard/submission")):
+            if u.get("role") != "user":
+                return RedirectResponse("/dashboard/verifications/" if u.get("role") == "admin" else "/dashboard/jury/", status_code=303)
         elif page_path in ("dashboard", "dashboard/"):
             if u.get("role") == "admin":
                 return RedirectResponse("/dashboard/verifications/", status_code=303)

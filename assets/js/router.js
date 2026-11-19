@@ -47,6 +47,14 @@
         return;
       }
       var target = norm(path);
+      var role = ((window.__APP_STATE__ || {}).user || {}).role || "user";
+      var adminOnly = ["/dashboard/competitions/", "/dashboard/users/", "/dashboard/verifications/"];
+      if ((adminOnly.indexOf(target) !== -1 && role !== "admin") ||
+          (target === "/dashboard/jury/" && role === "user") ||
+          ((target === "/dashboard/profile/" || target === "/dashboard/submission/") && role !== "user")) {
+        window.location.replace(role === "admin" ? "/dashboard/verifications/" : role === "jury" ? "/dashboard/jury/" : "/dashboard/profile/");
+        return;
+      }
       if (current && current.route === route && norm(current.path) === target && !opts.force) return;
       if (current && current.route && current.route.onLeave) {
         try { current.route.onLeave(viewEl); } catch (e) {}
