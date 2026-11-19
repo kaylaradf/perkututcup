@@ -34,6 +34,7 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 (UPLOAD_DIR / "submissions").mkdir(parents=True, exist_ok=True)
 
 ALLOWED_DOC_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".pdf"}
+WHATSAPP_GROUP_URL = os.environ.get("PERKUTUT_WHATSAPP_URL", "").strip()
 ALLOWED_SUB_EXTS = {".zip", ".tar.gz", ".tgz", ".pdf", ".pkt", ".pka", ".docx", ".txt"}
 MAX_DOC_SIZE = 10 * 1024 * 1024  # 10 MB
 MAX_SUB_SIZE = 50 * 1024 * 1024  # 50 MB
@@ -1190,7 +1191,7 @@ def team(request: Request, competition_slug: str | None = None):
             ).fetchone()
 
         if membership is None:
-            return {"team": None, "message": "Kamu belum tergabung dalam tim."}
+            return {"team": None, "message": "Kamu belum tergabung dalam tim.", "whatsapp_url": WHATSAPP_GROUP_URL or None}
 
         comp_dict = {
             "status": membership.get("competition_status"),
@@ -1225,7 +1226,7 @@ def team(request: Request, competition_slug: str | None = None):
         "members": sanitized_members,
         "member_count": len(sanitized_members),
     }
-    return {"team": team_data}
+    return {"team": team_data, "whatsapp_url": WHATSAPP_GROUP_URL or None}
 
 
 @app.post("/api/team/join")

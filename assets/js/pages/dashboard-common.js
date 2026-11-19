@@ -108,10 +108,39 @@
     );
   }
 
+  /* SweetAlert2 wrappers: themed dialogs/toasts replacing native alert/confirm. */
+  function swalBase() {
+    return Swal.mixin({
+      background: "var(--dash-surface, #14161f)",
+      color: "var(--dash-text-body, #ffe8d9)",
+      confirmButtonColor: "#8644a2",
+      cancelButtonColor: "#4a4458"
+    });
+  }
+  function alertMsg(icon, title, text) {
+    if (!window.Swal) { window.alert(text || title); return Promise.resolve(); }
+    return swalBase().fire({ icon: icon, title: title, text: text || undefined });
+  }
+  function toast(icon, title) {
+    if (!window.Swal) { window.alert(title); return Promise.resolve(); }
+    return swalBase().fire({ icon: icon, title: title, toast: true, position: "top-end", timer: 2600, timerProgressBar: true, showConfirmButton: false });
+  }
+  function confirmMsg(title, text, confirmText) {
+    if (!window.Swal) return Promise.resolve(window.confirm(text || title));
+    return swalBase().fire({ icon: "warning", title: title, text: text || undefined, showCancelButton: true, confirmButtonText: confirmText || "Ya, lanjutkan", cancelButtonText: "Batal", reverseButtons: true }).then(function (r) { return !!r.isConfirmed; });
+  }
+  function refreshIcons() {
+    if (window.lucide) window.lucide.createIcons({ nameAttr: "data-lucide" });
+  }
+
   window.DashCommon = {
     escapeHtml: escapeHtml,
     renderAside: renderAside,
     initTheme: initTheme,
     initLogout: initLogout,
+    alertMsg: alertMsg,
+    toast: toast,
+    confirmMsg: confirmMsg,
+    refreshIcons: refreshIcons,
   };
 })();

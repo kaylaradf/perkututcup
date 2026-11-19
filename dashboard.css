@@ -587,11 +587,6 @@
   font-weight: 600;
 }
 
-.edit-link img {
-  width: 16px;
-  height: 16px;
-}
-
 .edit-link:hover,
 .edit-link:focus-visible {
   color: var(--white);
@@ -648,20 +643,6 @@
   box-shadow: 0 0 0 3px rgba(134, 68, 162, 0.22);
 }
 
-.input-wrap {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.input-wrap .input-icon {
-  position: absolute;
-  right: 0.85rem;
-  width: 18px;
-  height: 18px;
-  pointer-events: none;
-}
-
 .phone-row {
   display: flex;
   gap: 0.5rem;
@@ -679,19 +660,6 @@
   font-size: 0.78rem;
   font-weight: 600;
   white-space: nowrap;
-}
-
-.phone-code img {
-  width: 9px;
-  height: 9px;
-}
-
-.phone-flag {
-  width: 18px;
-  height: 11px;
-  flex-shrink: 0;
-  border-radius: 2px;
-  background: linear-gradient(#dc2626 0 50%, #f8fafc 50% 100%);
 }
 
 .sr-only {
@@ -1507,4 +1475,125 @@ html {
   .dash-theme-toggle {
     transition: none;
   }
+}
+
+/* ——— Lucide icons + SweetAlert2 integration ——— */
+.edit-link svg,
+.btn-save svg {
+  width: 15px;
+  height: 15px;
+}
+
+.btn-save {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.btn-whatsapp {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0.2rem 0 1rem;
+  padding: 0.6rem 1.1rem;
+  border: 1px solid rgba(37, 211, 102, 0.4);
+  border-radius: 12px;
+  background: rgba(37, 211, 102, 0.1);
+  color: #25d366;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  transition: background 160ms ease, transform 160ms ease;
+}
+
+.btn-whatsapp:hover,
+.btn-whatsapp:focus-visible {
+  background: rgba(37, 211, 102, 0.18);
+  transform: translateY(-1px);
+}
+
+.btn-whatsapp svg {
+  width: 17px;
+  height: 17px;
+}
+
+.upload-thumb--icon {
+  display: grid;
+  place-items: center;
+  background: var(--dash-proof-icon-bg);
+  color: var(--lavender);
+}
+
+.upload-thumb--icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.proof-icon svg {
+  width: 23px;
+  height: 23px;
+  color: var(--lavender);
+}
+
+.member-avatar {
+  display: grid;
+  width: 41px;
+  height: 41px;
+  place-items: center;
+  flex-shrink: 0;
+  border: 2px solid var(--dash-member-img-border);
+  border-radius: 50%;
+  background: var(--grad);
+  color: var(--white);
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+input[type="date"].input {
+  color-scheme: dark;
+}
+
+[data-theme="light"] input[type="date"].input {
+  color-scheme: light;
+}
+
+.swal2-popup {
+  border: 1px solid var(--dash-border);
+  border-radius: 16px;
+  font-family: var(--font-body, "Poppins", sans-serif);
+}
+
+.swal2-title {
+  font-family: var(--font-heading);
+  font-size: 1.15rem;
+}
+
+.swal2-html-container {
+  font-size: 0.85rem;
+}
+
+.swal2-styled {
+  border-radius: 10px;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+/* Author display rules above must not defeat the hidden attribute. */
+[hidden] {
+  display: none !important;
+}
+
+.btn-danger {
+  background: transparent;
+  border: 1px solid rgba(231, 76, 60, 0.45);
+  color: #e74c3c;
+}
+
+.btn-danger:hover,
+.btn-danger:focus-visible {
+  background: rgba(231, 76, 60, 0.12);
 }
