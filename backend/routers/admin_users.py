@@ -65,12 +65,19 @@ class AdminUserUpdateIn(BaseModel):
         return role
 
 
+USER_SORT_COLS = {"id", "full_name", "email", "role", "created_at"}
+
+
 @router.get("/api/admin/users")
-def admin_list_users(request: Request, q: str | None = None, limit: int = 50, offset: int = 0):
+def admin_list_users(request: Request, q: str | None = None, limit: int = 50, offset: int = 0, sort: str = "id", dir: str = "desc"):
     require_admin(request)
     limit = max(1, min(int(limit or 50), 200))
     offset = max(0, int(offset or 0))
     search = (q or "").strip().lower()
+    # Whitelist kolom sort (CWE-89): nilai tak pernah masuk SQL mentah.
+    sort_col = sort if sort in USER_SORT_COLS else "id"
+    sort_dir = "ASC" if (dir or "").lower() == "asc" else "DESC"
+    order = f"ORDER BY {sort_col} {sort_dir}, id DESC"
     with db() as conn:
         if search:
             pattern = f"%{search}%"
@@ -79,11 +86,11 @@ def admin_list_users(request: Request, q: str | None = None, limit: int = 50, of
                 (pattern, pattern),
             ).fetchone()["count"]
             rows = conn.execute(
-                """
+                f"""
                 SELECT id, full_name, email, COALESCE(role, 'user') AS role, institution, phone, created_at
                 FROM users
                 WHERE LOWER(full_name) LIKE %s OR LOWER(email) LIKE %s
-                ORDER BY id DESC
+                {order}
                 LIMIT %s OFFSET %s
                 """,
                 (pattern, pattern, limit, offset),
@@ -91,15 +98,15 @@ def admin_list_users(request: Request, q: str | None = None, limit: int = 50, of
         else:
             total = conn.execute("SELECT COUNT(*) AS count FROM users").fetchone()["count"]
             rows = conn.execute(
-                """
+                f"""
                 SELECT id, full_name, email, COALESCE(role, 'user') AS role, institution, phone, created_at
                 FROM users
-                ORDER BY id DESC
+                {order}
                 LIMIT %s OFFSET %s
                 """,
                 (limit, offset),
             ).fetchall()
-    return {"users": [format_user(r) for r in rows], "total": total, "limit": limit, "offset": offset, "q": search or None}
+    return {"users": [format_user(r) for r in rows], "total": total, "limit": limit, "offset": offset, "q": search or None, "sort": sort_col, "dir": sort_dir.lower()}
 
 
 @router.get("/api/admin/users/{user_id}")

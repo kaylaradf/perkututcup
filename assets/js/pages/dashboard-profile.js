@@ -22,7 +22,7 @@
 '      <section class="dash-metrics" aria-label="Ringkasan akun">' +
 '        <article class="metric is-violet">' +
 '          <img class="metric-watermark" src="/assets/svg/dashboard/watermark-members.svg" width="72" height="72" alt="" />' +
-'          <span class="metric-icon"><img src="/assets/svg/dashboard/icon-members.svg" width="23" height="23" alt="" /></span>' +
+'          <span class="metric-icon"><i data-lucide="users"></i></span>' +
 '          <div>' +
 '            <p class="metric-label">TEAM MEMBER COUNT</p>' +
 '            <p class="metric-value" data-team-member-count>—</p>' +
@@ -30,7 +30,7 @@
 '        </article>' +
 '        <article class="metric is-green">' +
 '          <img class="metric-watermark" src="/assets/svg/dashboard/watermark-check.svg" width="72" height="72" alt="" />' +
-'          <span class="metric-icon"><img src="/assets/svg/dashboard/icon-shield-check.svg" width="23" height="23" alt="" /></span>' +
+'          <span class="metric-icon"><i data-lucide="shield-check"></i></span>' +
 '          <div>' +
 '            <p class="metric-label">REGISTRATION STATUS</p>' +
 '            <p class="metric-value" data-registration-status>Memuat…</p>' +
@@ -38,7 +38,7 @@
 '        </article>' +
 '        <article class="metric is-amber">' +
 '          <img class="metric-watermark" src="/assets/svg/dashboard/watermark-trophy.svg" width="72" height="72" alt="" />' +
-'          <span class="metric-icon"><img src="/assets/svg/dashboard/icon-trophy.svg" width="23" height="23" alt="" /></span>' +
+'          <span class="metric-icon"><i data-lucide="trophy"></i></span>' +
 '          <div>' +
 '            <p class="metric-label">COMPETITION TRACK</p>' +
 '            <p class="metric-value" data-team-track>—</p>' +

@@ -543,7 +543,7 @@
               <td>
                 <div style="display:flex;gap:.45rem;flex-wrap:wrap;">
                   <button class="btn-edit-comp" type="button" data-edit-slug="${esc(c.slug)}">
-                    <img src="/assets/svg/dashboard/icon-pencil.svg" width="12" height="12" alt="" />
+                    <i data-lucide="pencil" style="width:12px;height:12px;"></i>
                     Edit
                   </button>
                   <button class="btn-delete-comp" type="button" data-delete-slug="${esc(c.slug)}" data-delete-name="${esc(c.name)}">Hapus</button>
@@ -552,6 +552,7 @@
             `;
             tbody.appendChild(tr);
           });
+          window.DashCommon.refreshIcons();
 
           tbody.querySelectorAll("[data-edit-slug]").forEach((btn) => {
             btn.addEventListener("click", function () {

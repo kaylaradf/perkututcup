@@ -137,7 +137,7 @@
       '<section class="dash-metrics" aria-label="Ringkasan pengumpulan">' +
       '  <article class="metric is-green">' +
       '    <img class="metric-watermark" src="/assets/svg/dashboard/watermark-check.svg" width="72" height="72" alt="" />' +
-      '    <span class="metric-icon"><img src="/assets/svg/dashboard/icon-shield-check.svg" width="23" height="23" alt="" /></span>' +
+'    <span class="metric-icon"><i data-lucide="shield-check"></i></span>' +
       '    <div>' +
       '      <p class="metric-label">STATUS TIM</p>' +
       '      <p class="metric-value" style="color:#2ecc71;">TERVERIFIKASI ✓</p>' +
@@ -145,7 +145,7 @@
       '  </article>' +
       '  <article class="metric is-amber">' +
       '    <img class="metric-watermark" src="/assets/svg/dashboard/watermark-trophy.svg" width="72" height="72" alt="" />' +
-      '    <span class="metric-icon"><img src="/assets/svg/dashboard/icon-trophy.svg" width="23" height="23" alt="" /></span>' +
+'    <span class="metric-icon"><i data-lucide="trophy"></i></span>' +
       '    <div>' +
       '      <p class="metric-label">CABANG KOMPETISI</p>' +
       '      <p class="metric-value">' + escapeHtml(comp.name || 'Kompetisi') + '</p>' +
@@ -153,7 +153,7 @@
       '  </article>' +
       '  <article class="metric is-violet">' +
       '    <img class="metric-watermark" src="/assets/svg/dashboard/watermark-check-circle.svg" width="72" height="72" alt="" />' +
-      '    <span class="metric-icon"><img src="/assets/svg/dashboard/icon-check-circle-lg.svg" width="23" height="23" alt="" /></span>' +
+'    <span class="metric-icon"><i data-lucide="check-circle"></i></span>' +
       '    <div>' +
       '      <p class="metric-label">STATUS PENGUMPULAN</p>' +
       '      <p class="metric-value">' + (sub ? 'SUDAH DISUBMIT' : 'BELUM DISUBMIT') + '</p>' +

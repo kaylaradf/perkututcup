@@ -6,13 +6,13 @@
   if (window.DashCommon) return;
 
   var NAV_ITEMS = [
-    { key: "superkutut", href: "/mampir-dulu-loh-mas/cok-gateli/", icon: "/assets/svg/dashboard/icon-shield-check.svg", label: "SUPERKUTUT", roles: ["superadmin"] },
-    { key: "profile", href: "/dashboard/profile/", icon: "/assets/svg/dashboard/nav-profile.svg", label: "PROFILE &amp; TEAM", roles: ["user", "superadmin"] },
-    { key: "submission", href: "/dashboard/submission/", icon: "/assets/svg/dashboard/nav-submission.svg", label: "PROJECT SUBMISSION", roles: ["user", "superadmin"] },
-    { key: "verifications", href: "/dashboard/verifications/", icon: "/assets/svg/dashboard/nav-profile.svg", label: "VERIFIKASI BERKAS", roles: ["admin", "superadmin"] },
-    { key: "competitions", href: "/dashboard/competitions/", icon: "/assets/svg/dashboard/icon-trophy.svg", label: "KELOLA KOMPETISI", roles: ["admin", "superadmin"] },
-    { key: "users", href: "/dashboard/users/", icon: "/assets/svg/dashboard/icon-members.svg", label: "KELOLA PENGGUNA", roles: ["admin", "superadmin"] },
-    { key: "jury", href: "/dashboard/jury/", icon: "/assets/svg/dashboard/icon-trophy.svg", label: "PENILAIAN KARYA", roles: ["jury", "superadmin"] }
+    { key: "superkutut", href: "/mampir-dulu-loh-mas/cok-gateli/", icon: "terminal", label: "SUPERKUTUT", roles: ["superadmin"] },
+    { key: "profile", href: "/dashboard/profile/", icon: "user-round", label: "PROFILE &amp; TEAM", roles: ["user", "superadmin"] },
+    { key: "submission", href: "/dashboard/submission/", icon: "upload", label: "PROJECT SUBMISSION", roles: ["user", "superadmin"] },
+    { key: "verifications", href: "/dashboard/verifications/", icon: "shield-check", label: "VERIFIKASI BERKAS", roles: ["admin", "superadmin"] },
+    { key: "competitions", href: "/dashboard/competitions/", icon: "trophy", label: "KELOLA KOMPETISI", roles: ["admin", "superadmin"] },
+    { key: "users", href: "/dashboard/users/", icon: "users", label: "KELOLA PENGGUNA", roles: ["admin", "superadmin"] },
+    { key: "jury", href: "/dashboard/jury/", icon: "clipboard-check", label: "PENILAIAN KARYA", roles: ["jury", "superadmin"] }
   ];
 
   function escapeHtml(s) {
@@ -38,13 +38,13 @@
     NAV_ITEMS.forEach(function (item) {
       if (item.roles && item.roles.indexOf(role) === -1) return;
       var cls = item.key === active ? ' class="is-active" aria-current="page"' : "";
-      nav += '<a' + cls + ' href="' + item.href + '"><img src="' + item.icon + '" width="18" height="18" alt="" /><span>' + item.label + "</span></a>";
+      nav += '<a' + cls + ' href="' + item.href + '"><i data-lucide="' + item.icon + '"></i><span>' + item.label + "</span></a>";
     });
     return (
       '<aside class="dash-aside" aria-label="Navigasi akun">' +
       '  <div>' +
       '    <a class="dash-brand" href="/#home" aria-label="Perkutut Cup 2026 home">' +
-      '      <span class="dash-brand-mark"><img src="/assets/svg/dashboard/brand-mark.svg" width="22" height="22" alt="" /></span>' +
+      '      <span class="dash-brand-mark"><i data-lucide="bird"></i></span>' +
       "      <strong>User Portal</strong>" +
       "    </a>" +
       '    <div class="dash-team">' +
@@ -56,8 +56,8 @@
       "    </nav>" +
       "  </div>" +
       '  <div class="dash-aside-foot">' +
-      '    <a href="/#home"><img src="/assets/svg/dashboard/nav-home.svg" width="18" height="18" alt="" /><span>HOME PAGE</span></a>' +
-      '    <a href="/sign-in/" data-logout><img src="/assets/svg/dashboard/nav-logout.svg" width="18" height="18" alt="" /><span>LOGOUT</span></a>' +
+      '    <a href="/#home"><i data-lucide="house"></i><span>HOME PAGE</span></a>' +
+      '    <a href="/sign-in/" data-logout><i data-lucide="log-out"></i><span>LOGOUT</span></a>' +
       '    <button class="dash-theme-toggle" id="dash-theme-toggle" type="button" aria-label="Toggle light/dark theme" aria-pressed="false"><span class="toggle-icon" aria-hidden="true">🌙</span><span class="toggle-label">DARK MODE</span></button>' +
       "  </div>" +
       "</aside>"

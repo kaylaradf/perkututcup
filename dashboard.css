@@ -228,7 +228,8 @@
   background: var(--dash-brand-mark-bg);
 }
 
-.dash-brand-mark img {
+.dash-brand-mark img,
+.dash-brand-mark svg {
   width: 22px;
   height: 22px;
 }
@@ -303,9 +304,11 @@
   transition: background 160ms ease, color 160ms ease;
 }
 
-.dash-nav img {
+.dash-nav img,
+.dash-nav svg {
   width: 18px;
   height: 18px;
+  flex-shrink: 0;
 }
 
 .dash-nav a:hover,
@@ -322,6 +325,10 @@
 
 .dash-nav a.is-active img {
   filter: brightness(0) invert(1);
+}
+
+.dash-nav a.is-active svg {
+  color: var(--white);
 }
 
 .dash-aside-foot {
@@ -343,10 +350,12 @@
   letter-spacing: 0.05em;
 }
 
-.dash-aside-foot img {
+.dash-aside-foot img,
+.dash-aside-foot svg {
   width: 18px;
   height: 18px;
   opacity: 0.75;
+  flex-shrink: 0;
 }
 
 .dash-aside-foot a:hover,
@@ -431,9 +440,11 @@
   background: var(--dash-metric-icon-bg);
 }
 
-.metric-icon img {
+.metric-icon img,
+.metric-icon svg {
   width: 23px;
   height: 23px;
+  color: var(--lavender);
 }
 
 .metric-label {

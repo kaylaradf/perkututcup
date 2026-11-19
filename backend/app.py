@@ -86,9 +86,11 @@ async def audit_api_requests(request: Request, call_next):
     response = await call_next(request)
     dur = int((_time.monotonic() - start) * 1000)
     actor = request.state.user
-    # Noise reduction: skip polling GET ringan yang tidak mengubah apa pun.
-    noisy = path in ("/api/auth/captcha", "/api/auth/session", "/api/superkutut/logs/stream", "/api/superkutut/logs")
-    if not (request.method == "GET" and noisy):
+    # Noise reduction: GET sukses = pembacaan biasa, tidak dicatat per-request.
+    # Yang tetap tercatat: semua mutasi (POST/PATCH/PUT/DELETE), semua kegagalan
+    # (4xx/5xx termasuk GET ditolak), dan event bernilai dari handler (auth dsb.).
+    skip = request.method == "GET" and response.status_code < 400
+    if not skip:
         try:
             ip = request.headers.get("cf-connecting-ip") or request.headers.get("x-forwarded-for", "").split(",")[0].strip() or (request.client.host if request.client else None)
             from core import db as _db

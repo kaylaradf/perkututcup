@@ -3,10 +3,11 @@
   if (!window.Router) return;
 
   var state = { ac: null };
+  var usersCache = new Map(); // key: full query string, value: {t, data}; TTL 30s, stale-while-revalidate
 
   function pageCss() {
     return '' +
-'    .admin-table-wrap{overflow-x:auto;margin-top:1.2rem;border:1px solid var(--dash-border-mid);border-radius:12px;background:var(--dash-card)}' + "\n" +
+'    .admin-table-wrap{overflow-x:auto;overflow-y:auto;max-height:60vh;margin-top:1.2rem;border:1px solid var(--dash-border-mid);border-radius:12px;background:var(--dash-card)}' + "\n" +
 '    .admin-table{width:100%;border-collapse:collapse;font-size:.8rem;text-align:left}' + "\n" +
 '    .admin-table th,.admin-table td{padding:.85rem 1rem;border-bottom:1px solid var(--dash-border-subtle);vertical-align:top}' + "\n" +
 '    .admin-table th{background:rgba(255,232,217,.04);color:var(--dash-text-muted);font-family:var(--font-mono);font-size:.65rem;letter-spacing:.08em;text-transform:uppercase;font-weight:700}' + "\n" +
@@ -29,7 +30,15 @@
 '    .unauthorized-card{padding:2.5rem;text-align:center;border:1px solid rgba(231,76,60,.3);border-radius:16px;background:rgba(231,76,60,.08);margin-top:2rem}' + "\n" +
 '    .unauthorized-card h2{color:#e74c3c;margin-bottom:.8rem}' + "\n" +
 '    .toolbar{display:flex;gap:.75rem;flex-wrap:wrap;align-items:end;margin-top:1rem}' + "\n" +
-'    .toolbar .field{min-width:220px;flex:1}';
+'    .toolbar .field{min-width:220px;flex:1}' + "\n" +
+'    .admin-table thead th{position:sticky;top:0;z-index:2;background:var(--dash-card) linear-gradient(rgba(255,232,217,.04),rgba(255,232,217,.04));box-shadow:inset 0 -1px 0 var(--dash-border-subtle)}' + "\n" +
+'    .admin-table tbody tr:nth-child(even){background:rgba(255,232,217,.02)}' + "\n" +
+'    .th-sort{background:none;border:none;padding:0;color:inherit;font:inherit;letter-spacing:inherit;text-transform:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:3px}' + "\n" +
+'    .admin-table th svg{width:.7rem;height:.7rem}' + "\n" +
+'    .btn-admin svg{width:.8rem;height:.8rem}' + "\n" +
+'    .btn-admin:disabled{opacity:.4;cursor:default}' + "\n" +
+'    .table-pager{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;margin-top:.8rem;font-size:.75rem;color:var(--dash-text-muted);font-family:var(--font-mono)}' + "\n" +
+'    .table-pager select.input{width:auto;padding:.3rem .6rem;font-size:.72rem}';
   }
 
   function mainMarkup() {
@@ -50,12 +59,19 @@
 '            <label class="field"><span>CARI NAMA / EMAIL</span><input class="input" type="search" id="search-q" placeholder="contoh: ari atau ari@example.com" /></label>' + "\n" +
 '            <button class="btn-upload" type="submit">CARI</button>' + "\n" +
 '            <button class="btn-upload" type="button" id="search-reset">RESET</button>' + "\n" +
+'            <button class="btn-admin" type="button" id="users-refresh" aria-label="Muat ulang" title="Muat ulang (abaikan cache)"><i data-lucide="refresh-cw"></i></button>' + "\n" +
 '          </form>' + "\n" +
 '          <div class="admin-table-wrap">' + "\n" +
 '            <table class="admin-table">' + "\n" +
-'              <thead><tr><th>ID</th><th>Nama &amp; Email</th><th>Role</th><th>Institusi</th><th>Dibuat</th><th>Aksi</th></tr></thead>' + "\n" +
+'              <thead><tr><th data-sort="id"><button type="button" class="th-sort">ID <span class="sort-ind" aria-hidden="true"></span></button></th><th data-sort="full_name"><button type="button" class="th-sort">Nama &amp; Email <span class="sort-ind" aria-hidden="true"></span></button></th><th data-sort="role"><button type="button" class="th-sort">Role <span class="sort-ind" aria-hidden="true"></span></button></th><th>Institusi</th><th data-sort="created_at"><button type="button" class="th-sort">Dibuat <span class="sort-ind" aria-hidden="true"></span></button></th><th>Aksi</th></tr></thead>' + "\n" +
 '              <tbody id="users-tbody"><tr><td colspan="6" style="text-align:center; padding:2rem; color:var(--dash-text-muted);">Memuat data pengguna…</td></tr></tbody>' + "\n" +
 '            </table>' + "\n" +
+'          </div>' + "\n" +
+'          <div class="table-pager">' + "\n" +
+'            <label style="display:inline-flex;align-items:center;gap:.4rem;">PER HALAMAN <select class="input" id="page-size"><option value="25">25</option><option value="50">50</option><option value="100">100</option></select></label>' + "\n" +
+'            <button class="btn-admin" type="button" id="page-prev" aria-label="Halaman sebelumnya"><i data-lucide="chevron-left"></i></button>' + "\n" +
+'            <span id="page-info" role="status" aria-live="polite">Halaman 1 / 1</span>' + "\n" +
+'            <button class="btn-admin" type="button" id="page-next" aria-label="Halaman berikutnya"><i data-lucide="chevron-right"></i></button>' + "\n" +
 '          </div>' + "\n" +
 '          <p class="dash-status" id="list-status" role="status" aria-live="polite"></p>' + "\n" +
 '        </section>' + "\n" +
@@ -171,34 +187,80 @@
           .catch(function(){});
       } catch (e) { if (signal.aborted) return; unauthView.hidden=false; return; }
 
-      async function loadUsers(){
-        listStatus.textContent = 'Memuat…';
+      var sort = 'id', dir = 'desc', page = 1, pageSize = 25, loadSeq = 0, searchTimer = null;
+      var searchInput = container.querySelector('#search-q'), pageInfo = container.querySelector('#page-info'), prevBtn = container.querySelector('#page-prev'), nextBtn = container.querySelector('#page-next');
+
+      function fmtDate(v){ if (!v) return '-'; var d = new Date(v); return isNaN(d.getTime()) ? String(v) : d.toLocaleString('id-ID', { dateStyle:'medium', timeStyle:'short' }); }
+
+      function renderUsers(data){
+        users = data.users || [];
+        var total = data.total == null ? users.length : data.total;
+        var pages = Math.max(1, Math.ceil(total / pageSize));
+        pageInfo.textContent = 'Halaman ' + page + ' / ' + pages + ' · total ' + total + ' pengguna';
+        prevBtn.disabled = page <= 1;
+        nextBtn.disabled = page >= pages;
+        if (!users.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--dash-text-muted);">Tidak ada pengguna.</td></tr>'; return; }
+        tbody.innerHTML = users.map(function(u){
+          var role = u.role || 'user';
+          return '<tr><td><code style="font-family:var(--font-mono);font-size:.72rem;">'+u.id+'</code></td><td><strong style="color:var(--dash-text-primary);">'+esc(u.full_name||'-')+'</strong><br/><span style="color:var(--dash-text-muted);font-size:.72rem;">'+esc(u.email||'-')+'</span></td><td><span class="role-badge role-'+esc(role)+'">'+esc(role)+'</span></td><td>'+esc(u.institution||'-')+'</td><td style="font-size:.72rem;color:var(--dash-text-muted);">'+esc(fmtDate(u.created_at))+'</td><td><button class="btn-admin" type="button" data-edit-user="'+u.id+'">Ubah / Reset</button></td></tr>';
+        }).join('');
+        tbody.querySelectorAll('[data-edit-user]').forEach(function(btn){ btn.addEventListener('click', function(){ var id = Number(btn.getAttribute('data-edit-user')); var user = users.find(function(u){ return u.id===id; }); if (user) openModal('edit', user); }, { signal: signal }); });
+      }
+
+      function updateSortIndicators(){
+        container.querySelectorAll('th[data-sort]').forEach(function(th){
+          var active = th.getAttribute('data-sort') === sort;
+          if (active) th.setAttribute('aria-sort', dir === 'asc' ? 'ascending' : 'descending'); else th.removeAttribute('aria-sort');
+          th.querySelector('.sort-ind').innerHTML = active ? '<i data-lucide="arrow-' + (dir === 'asc' ? 'up' : 'down') + '"></i>' : '';
+        });
+        window.DashCommon.refreshIcons();
+      }
+
+      async function loadUsers(force){
+        if (signal.aborted) return;
+        var q = searchInput.value.trim();
+        var key = 'q=' + encodeURIComponent(q) + '&sort=' + sort + '&dir=' + dir + '&limit=' + pageSize + '&offset=' + ((page - 1) * pageSize);
+        var hit = usersCache.get(key);
+        if (hit) { renderUsers(hit.data); listStatus.textContent = ''; }
+        if (hit && !force && Date.now() - hit.t < 30000) return; // fresh cache: no revalidate
+        var seq = ++loadSeq;
+        listStatus.textContent = hit ? 'Memperbarui…' : 'Memuat…';
         try {
-          var q = container.querySelector('#search-q').value.trim();
-          var url = '/api/admin/users?limit=100&offset=0' + (q ? '&q=' + encodeURIComponent(q) : '');
-          var res = await fetch(url, { credentials:'same-origin', signal: signal });
+          var res = await fetch('/api/admin/users?' + key, { credentials:'same-origin', signal: signal });
           var data = await res.json().catch(function(){ return {}; });
           if (!res.ok) throw new Error(data.detail || ('HTTP ' + res.status));
-          users = data.users || [];
-          listStatus.textContent = 'Total: ' + (data.total == null ? users.length : data.total) + ' pengguna.';
+          usersCache.set(key, { t: Date.now(), data: data });
+          if (signal.aborted || seq !== loadSeq) return;
+          if (!hit || force || JSON.stringify(data) !== JSON.stringify(hit.data)) renderUsers(data);
+          listStatus.textContent = '';
 
           // Load juries assignments
           fetch('/api/admin/juries', { credentials:'same-origin', signal: signal })
             .then(function(r){ return r.json(); })
             .then(function(d){ (d.juries || []).forEach(function(j){ juryAssignments[j.id] = j.competitions || []; }); })
             .catch(function(){});
-
-          if (!users.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--dash-text-muted);">Tidak ada pengguna.</td></tr>'; return; }
-          tbody.innerHTML = users.map(function(u){
-            var role = u.role || 'user';
-            return '<tr><td><code style="font-family:var(--font-mono);font-size:.72rem;">'+u.id+'</code></td><td><strong style="color:var(--dash-text-primary);">'+esc(u.full_name||'-')+'</strong><br/><span style="color:var(--dash-text-muted);font-size:.72rem;">'+esc(u.email||'-')+'</span></td><td><span class="role-badge role-'+esc(role)+'">'+esc(role)+'</span></td><td>'+esc(u.institution||'-')+'</td><td style="font-size:.72rem;color:var(--dash-text-muted);">'+esc(u.created_at||'-')+'</td><td><button class="btn-admin" type="button" data-edit-user="'+u.id+'">Ubah / Reset</button></td></tr>';
-          }).join('');
-          tbody.querySelectorAll('[data-edit-user]').forEach(function(btn){ btn.addEventListener('click', function(){ var id = Number(btn.getAttribute('data-edit-user')); var user = users.find(function(u){ return u.id===id; }); if (user) openModal('edit', user); }, { signal: signal }); });
-        } catch (err) { if (signal.aborted) return; tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:#e74c3c;">Gagal memuat pengguna: '+esc(err.message)+'</td></tr>'; listStatus.textContent=''; }
+        } catch (err) {
+          if (signal.aborted || seq !== loadSeq) return;
+          if (!hit) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:#e74c3c;">Gagal memuat pengguna: '+esc(err.message)+'</td></tr>';
+          listStatus.textContent = 'Gagal memuat pengguna: ' + err.message;
+        }
       }
 
-      container.querySelector('#search-form').addEventListener('submit', function(e){ e.preventDefault(); loadUsers(); }, { signal: signal });
-      container.querySelector('#search-reset').addEventListener('click', function(){ container.querySelector('#search-q').value=''; loadUsers(); }, { signal: signal });
+      container.querySelector('#search-form').addEventListener('submit', function(e){ e.preventDefault(); clearTimeout(searchTimer); page = 1; loadUsers(); }, { signal: signal });
+      container.querySelector('#search-reset').addEventListener('click', function(){ clearTimeout(searchTimer); searchInput.value = ''; page = 1; loadUsers(); }, { signal: signal });
+      searchInput.addEventListener('input', function(){ clearTimeout(searchTimer); searchTimer = setTimeout(function(){ page = 1; loadUsers(); }, 400); }, { signal: signal });
+      container.querySelector('#users-refresh').addEventListener('click', function(){ loadUsers(true); }, { signal: signal });
+      container.querySelector('#page-size').addEventListener('change', function(){ pageSize = Number(this.value) || 25; page = 1; loadUsers(); }, { signal: signal });
+      prevBtn.addEventListener('click', function(){ if (page > 1) { page--; loadUsers(); } }, { signal: signal });
+      nextBtn.addEventListener('click', function(){ if (!nextBtn.disabled) { page++; loadUsers(); } }, { signal: signal });
+      container.querySelector('.admin-table thead').addEventListener('click', function(e){
+        var th = e.target.closest('th[data-sort]');
+        if (!th) return;
+        var key = th.getAttribute('data-sort');
+        if (key === sort) dir = dir === 'asc' ? 'desc' : 'asc'; else { sort = key; dir = 'asc'; }
+        page = 1; updateSortIndicators(); loadUsers();
+      }, { signal: signal });
+      updateSortIndicators();
 
       form.addEventListener('submit', async function(e){
         e.preventDefault(); modalStatus.style.color='var(--dash-text-muted)'; modalStatus.textContent='Menyimpan…';
@@ -230,7 +292,7 @@
           }
 
           modalStatus.style.color='#2ecc71'; modalStatus.textContent = data.message || (mode==='create' ? 'Pengguna berhasil dibuat.' : (data.password_reset ? 'Role diperbarui dan password direset.' : 'Role berhasil diperbarui.'));
-          setTimeout(function(){ if (signal.aborted) return; closeModal(); loadUsers(); }, 500);
+          setTimeout(function(){ if (signal.aborted) return; closeModal(); usersCache.clear(); loadUsers(); }, 500);
         } catch (err) { if (signal.aborted) return; modalStatus.style.color='#e74c3c'; modalStatus.textContent='Tidak dapat menghubungi server.'; }
       }, { signal: signal });
 
