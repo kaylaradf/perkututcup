@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex, nofollow" />
-  <title>Get-TuiCredential</title>
+  <title>Mampir-dulu-loh-mas</title>
   <link rel="icon" type="image/svg+xml" href="/assets/svg/favicon.svg" />
   <style>
     :root {
@@ -100,14 +100,11 @@
     .tui-msg.is-ok { color: #7ee787; }
     .tui-hint { margin-top: 0.4rem; font-size: 0.75rem; color: #8b949e; }
     [hidden] { display: none !important; }
-    .tui-caret { display: inline-block; width: 0.55em; height: 1em; background: var(--tui-text); vertical-align: -2px; animation: blink 1s steps(1) infinite; }
-    @keyframes blink { 50% { opacity: 0; } }
-    @media (prefers-reduced-motion: reduce) { .tui-caret { animation: none; } }
   </style>
 </head>
 <body>
   <main class="tui-box" aria-labelledby="tui-title">
-    <span class="tui-title" id="tui-title">Get-TuiCredential</span>
+    <span class="tui-title" id="tui-title">Mampir-dulu-loh-mas</span>
 
     <form id="step-creds" novalidate>
       <div class="tui-row">
@@ -118,17 +115,12 @@
         <label for="su-pass">Password</label>
         <input id="su-pass" name="password" type="password" autocomplete="current-password" maxlength="200" required />
       </div>
-      <p class="tui-question" id="su-captcha-question">Memuat soal verifikasi…</p>
-      <div class="tui-row">
-        <label for="su-captcha">Jawaban</label>
-        <input id="su-captcha" name="captchaAnswer" type="text" inputmode="numeric" autocomplete="off" maxlength="4" required />
-      </div>
       <div class="tui-buttons">
         <button class="tui-btn" type="submit" id="btn-login">Login</button>
         <button class="tui-btn" type="button" id="btn-cancel">Cancel</button>
         <button class="tui-btn" type="button" id="btn-showpwd" aria-pressed="false">ShowPwd</button>
-        <button class="tui-btn" type="button" id="btn-newq">NewQ</button>
       </div>
+      <p class="tui-hint">Rate limit: 1 percobaan login / menit / IP.</p>
     </form>
 
     <form id="step-mfa" hidden novalidate>
@@ -153,24 +145,12 @@
     var credsForm = document.getElementById("step-creds");
     var mfaForm = document.getElementById("step-mfa");
     var msg = document.getElementById("su-message");
-    var qEl = document.getElementById("su-captcha-question");
-    var captchaId = null;
     var mfaTicket = null;
 
     function setMsg(text, ok) {
       msg.textContent = text || "";
       msg.classList.toggle("is-ok", !!ok);
     }
-
-    function loadCaptcha() {
-      qEl.textContent = "Memuat soal verifikasi…";
-      fetch("/api/auth/captcha").then(function (r) { return r.json(); }).then(function (d) {
-        captchaId = d.id;
-        qEl.textContent = d.question;
-      }).catch(function () { qEl.textContent = "Gagal memuat soal — tekan NewQ."; });
-    }
-    loadCaptcha();
-    document.getElementById("btn-newq").addEventListener("click", loadCaptcha);
 
     document.getElementById("btn-showpwd").addEventListener("click", function () {
       var p = document.getElementById("su-pass");
@@ -182,7 +162,6 @@
     document.getElementById("btn-cancel").addEventListener("click", function () {
       credsForm.reset();
       setMsg("");
-      loadCaptcha();
       document.getElementById("su-user").focus();
     });
 
@@ -192,13 +171,14 @@
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
         body: JSON.stringify(body)
-      }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, data: d }; }); });
+      }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, status: r.status, data: d }; }); });
     }
 
-    function errText(d) {
-      var det = d && d.detail;
+    function errText(res) {
+      if (res.status === 429) return "Terlalu banyak percobaan. Tunggu 1 menit lalu coba lagi.";
+      var det = res.data && res.data.detail;
       if (typeof det === "string") return det;
-      if (det && typeof det === "object") return det.captcha || det.lockout || JSON.stringify(det);
+      if (det && typeof det === "object") return det.lockout || JSON.stringify(det);
       return "Gagal.";
     }
 
@@ -206,14 +186,11 @@
       e.preventDefault();
       setMsg("");
       if (!credsForm.reportValidity()) return;
-      if (!captchaId) { setMsg("Soal verifikasi belum termuat."); return; }
       var btn = document.getElementById("btn-login");
       btn.disabled = true;
       post("/api/superkutut/auth/login", {
         username: credsForm.username.value.trim(),
-        password: credsForm.password.value,
-        captcha_id: captchaId,
-        captcha_answer: credsForm.captchaAnswer.value.trim()
+        password: credsForm.password.value
       }).then(function (res) {
         btn.disabled = false;
         if (res.ok && res.data.mfa_required) {
@@ -224,9 +201,7 @@
           document.getElementById("su-totp").focus();
           return;
         }
-        setMsg(errText(res.data));
-        loadCaptcha();
-        credsForm.captchaAnswer.value = "";
+        setMsg(errText(res));
       }).catch(function () { btn.disabled = false; setMsg("Tidak dapat menghubungi server."); });
     });
 
@@ -235,8 +210,6 @@
       mfaForm.hidden = true;
       credsForm.hidden = false;
       setMsg("");
-      loadCaptcha();
-      credsForm.captchaAnswer.value = "";
       document.getElementById("su-user").focus();
     });
 
@@ -257,7 +230,7 @@
           window.location.href = "/mampir-dulu-loh-mas/cok-gateli/";
           return;
         }
-        setMsg(errText(res.data));
+        setMsg(errText(res));
         document.getElementById("su-totp").value = "";
         document.getElementById("su-totp").focus();
         if (res.data.detail && String(res.data.detail).indexOf("Ulangi login") !== -1) {

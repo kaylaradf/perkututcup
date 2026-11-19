@@ -29,7 +29,6 @@ from core import (
     create_super_session,
     db,
     limiter,
-    require_captcha,
     require_superadmin,
     verify_super_totp,
 )
@@ -40,8 +39,6 @@ router = APIRouter(prefix="/api/superkutut")
 class SuperLoginIn(BaseModel):
     username: str = Field(min_length=1, max_length=100)
     password: str = Field(min_length=1, max_length=200)
-    captcha_id: str = Field(min_length=1)
-    captcha_answer: str = Field(min_length=1)
 
 
 class SuperMfaIn(BaseModel):
@@ -74,11 +71,10 @@ def _verify_mfa_ticket(ticket: str, username: str) -> bool:
 
 
 @router.post("/auth/login")
-@limiter.limit("5/minute")
+@limiter.limit("1/minute")
 def super_login(request: Request, payload: SuperLoginIn):
-    """Langkah 1: username + password + captcha. Sukses -> ticket MFA (belum login)."""
+    """Langkah 1: username + password (rate limit 1x/menit/IP). Sukses -> ticket MFA."""
     actor = {"id": None, "email": payload.username, "role": "superadmin"}
-    require_captcha(payload)
     ok_user = hmac.compare_digest(payload.username, SUPERADMIN_USERNAME)
     ok_pass = hmac.compare_digest(payload.password, SUPERADMIN_PASSWORD)
     if not (ok_user and ok_pass):

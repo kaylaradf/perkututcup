@@ -1,17 +1,17 @@
-/* Superkutut dashboard: live audit log (SSE) + overview stats.
+/* Superkutut dashboard: console-style live audit log (SSE) + filters.
  * Route: /mampir-dulu-loh-mas/cok-gateli/ — hanya role superadmin (guard server+client). */
 (function () {
   "use strict";
   if (!window.Router) return;
 
   var SUPER_PATH = "/mampir-dulu-loh-mas/cok-gateli/";
-  var state = { ac: null, es: null, paused: false, rows: [], maxRows: 500, filters: {} };
+  var state = { ac: null, es: null, paused: false, rows: [], maxRows: 800, filters: {} };
   var esc = window.DashCommon.escapeHtml;
 
   var CAT_COLORS = {
-    auth: "#f1c40f", superkutut: "#e74c3c", profile: "#6ee7b7", team: "#6ee7b7",
-    document: "#bf8fee", verification: "#bf8fee", competition: "#ff9f68",
-    submission: "#ff9f68", jury: "#ffd166", admin_users: "#e74c3c", api: "#8a86a0"
+    auth: "#f9f1a5", superkutut: "#ff7b72", profile: "#7ee787", team: "#7ee787",
+    document: "#d2a8ff", verification: "#d2a8ff", competition: "#ffa657",
+    submission: "#ffa657", jury: "#f9f1a5", admin_users: "#ff7b72", api: "#79c0ff"
   };
 
   function render(container) {
@@ -20,59 +20,66 @@
       window.DashCommon.renderAside("superkutut") +
       '<main class="dash-main">' +
       '  <h1 class="dash-page-title">SUPERKUTUT</h1>' +
-      '  <p class="dash-page-sub">Seluruh privilege dalam satu tempat. Live log aktivitas Perkutut Cup.</p>' +
-      '  <section class="dash-metrics" aria-label="Ringkasan 24 jam">' +
-      '    <article class="metric is-green"><div><p class="metric-label">LOGIN SUKSES (24J)</p><p class="metric-value" data-stat="logins_24h">—</p></div></article>' +
-      '    <article class="metric is-amber"><div><p class="metric-label">LOGIN GAGAL (24J)</p><p class="metric-value" data-stat="login_failures_24h">—</p></div></article>' +
-      '    <article class="metric is-violet"><div><p class="metric-label">TOTAL EVENT (24J)</p><p class="metric-value" data-stat="events_24h">—</p></div></article>' +
-      '    <article class="metric is-green"><div><p class="metric-label">UPLOAD (24J)</p><p class="metric-value" data-stat="uploads_24h">—</p></div></article>' +
-      '  </section>' +
-      '  <section class="card" style="margin-bottom:1rem;">' +
-      '    <div class="card-head"><h2>LIVE LOG</h2>' +
-      '      <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">' +
-      '        <span class="su-live-dot" data-live-dot title="Status stream"></span>' +
-      '        <button class="vdoc-btn" type="button" data-pause>Jeda</button>' +
-      '        <button class="vdoc-btn" type="button" data-export>Export CSV</button>' +
-      '      </div>' +
+      '  <p class="dash-page-sub">Console log aktivitas Perkutut Cup — live.</p>' +
+      '  <div class="su-console-wrap">' +
+      '    <div class="su-console-bar">' +
+      '      <span class="su-live-dot" data-live-dot title="Status stream"></span>' +
+      '      <select class="su-cfilter" data-f="category" aria-label="Filter kategori"><option value="">category: all</option><option>auth</option><option>superkutut</option><option>profile</option><option>team</option><option>document</option><option>verification</option><option>competition</option><option>submission</option><option>jury</option><option>admin_users</option><option>api</option></select>' +
+      '      <select class="su-cfilter" data-f="action" aria-label="Filter aksi"><option value="">action: all</option></select>' +
+      '      <select class="su-cfilter" data-f="outcome" aria-label="Filter outcome"><option value="">outcome: all</option><option>ok</option><option>denied</option><option>error</option></select>' +
+      '      <input class="su-cfilter su-csearch" data-f="q" type="search" placeholder="grep…" aria-label="Cari log" />' +
+      '      <button class="su-cbtn" type="button" data-pause>Pause</button>' +
+      '      <button class="su-cbtn" type="button" data-export>Export</button>' +
+      '      <button class="su-cbtn" type="button" data-clear>Clear</button>' +
       '    </div>' +
-      '    <div class="su-filter-bar">' +
-      '      <select class="input" data-f="category"><option value="">Semua kategori</option><option>auth</option><option>superkutut</option><option>profile</option><option>team</option><option>document</option><option>verification</option><option>competition</option><option>submission</option><option>jury</option><option>admin_users</option><option>api</option></select>' +
-      '      <select class="input" data-f="outcome"><option value="">Semua outcome</option><option>ok</option><option>denied</option><option>error</option></select>' +
-      '      <input class="input" data-f="q" type="search" placeholder="Cari email / aksi / target / path…" />' +
-      '    </div>' +
-      '    <div class="su-log" data-log role="log" aria-live="off"></div>' +
-      '  </section>' +
+      '    <div class="su-console" data-console role="log" aria-live="off" tabindex="0"></div>' +
+      '  </div>' +
       '</main>' +
       '</div>';
   }
 
-  function rowHtml(r) {
-    var color = CAT_COLORS[r.category] || "#8a86a0";
-    var outcomeCls = r.outcome === "ok" ? "is-approved" : (r.outcome === "denied" ? "is-rejected" : "is-pending");
-    var actor = r.actor_email || "(anonim)";
-    var what = r.action + (r.path && r.category === "api" ? "" : "");
-    var target = r.target_type ? " → " + r.target_type + "#" + (r.target_id || "?") : "";
-    var detail = r.detail && Object.keys(r.detail).length ? JSON.stringify(r.detail, null, 1) : "";
-    var ts = r.ts ? new Date(r.ts).toLocaleString("id-ID", { dateStyle: "short", timeStyle: "medium" }) : "";
+  function pad(n) { return n < 10 ? "0" + n : "" + n; }
+
+  function lineHtml(r) {
+    var d = r.ts ? new Date(r.ts) : new Date();
+    var t = "[" + pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds()) + "]";
+    var color = CAT_COLORS[r.category] || "#8b949e";
+    var icon = r.outcome === "ok" ? "●" : (r.outcome === "denied" ? "⛔" : "✖");
+    var iconColor = r.outcome === "ok" ? "#7ee787" : (r.outcome === "denied" ? "#ff7b72" : "#ffa657");
+    var parts = [];
+    if (r.category === "api") {
+      parts.push((r.method || "") + " " + (r.path || ""));
+      if (r.status) parts.push("→ " + r.status);
+      if (r.duration_ms != null) parts.push(r.duration_ms + "ms");
+    } else {
+      parts.push(r.action.toUpperCase().replace(/_/g, " "));
+      if (r.target_type) parts.push(r.target_type + "#" + (r.target_id || "?"));
+    }
+    if (r.actor_email) parts.push("· " + r.actor_email + (r.actor_role ? " (" + r.actor_role + ")" : ""));
+    if (r.ip) parts.push("· " + r.ip);
+    var det = r.detail && Object.keys(r.detail).length ? r.detail : null;
+    if (det) {
+      var kv = Object.keys(det).map(function (k) {
+        var v = det[k];
+        if (v !== null && typeof v === "object") v = JSON.stringify(v);
+        return k + "=" + String(v);
+      }).join(" ");
+      parts.push("· " + kv);
+    }
     return (
-      '<article class="su-row" data-id="' + r.id + '">' +
-      '  <div class="su-row-main">' +
-      '    <span class="su-time">' + esc(ts) + '</span>' +
-      '    <span class="su-cat" style="color:' + color + ';border-color:' + color + '55">' + esc(r.category) + '</span>' +
-      '    <strong>' + esc(what) + '</strong>' +
-      '    <span class="vdoc-badge ' + outcomeCls + '">' + esc(r.outcome) + '</span>' +
-      '    <span class="su-actor">' + esc(actor) + (r.actor_role ? ' <small>(' + esc(r.actor_role) + ')</small>' : '') + esc(target) + '</span>' +
-      (r.status ? ' <small class="su-meta">' + esc(r.method || "") + " " + r.status + (r.duration_ms != null ? " · " + r.duration_ms + "ms" : "") + '</small>' : '') +
-      (r.ip ? ' <small class="su-meta">' + esc(r.ip) + '</small>' : '') +
-      '  </div>' +
-      (detail ? '<details class="su-detail"><summary>detail</summary><pre>' + esc(detail) + '</pre></details>' : '') +
-      '</article>'
+      '<div class="su-line" data-id="' + r.id + '" title="' + esc(r.user_agent || "") + '">' +
+      '<span class="su-t">' + t + "</span> " +
+      '<span style="color:' + iconColor + '">' + icon + "</span> " +
+      '<span class="su-c" style="color:' + color + '">' + esc(r.category) + "</span> " +
+      '<span class="su-m">' + esc(parts.join("  ")) + "</span>" +
+      "</div>"
     );
   }
 
   function matchesFilters(r) {
     var f = state.filters;
     if (f.category && r.category !== f.category) return false;
+    if (f.action && r.action !== f.action) return false;
     if (f.outcome && r.outcome !== f.outcome) return false;
     if (f.q) {
       var hay = (r.actor_email || "") + " " + r.action + " " + (r.target_id || "") + " " + (r.path || "") + " " + JSON.stringify(r.detail || {});
@@ -81,59 +88,78 @@
     return true;
   }
 
+  function atBottom(el) { return el.scrollHeight - el.scrollTop - el.clientHeight < 40; }
+
   function paintAll(container) {
-    var log = container.querySelector("[data-log]");
-    var visible = state.rows.filter(matchesFilters).slice(0, state.maxRows);
-    log.innerHTML = visible.length ? visible.map(rowHtml).join("") : '<p class="dash-status" style="padding:1.5rem;text-align:center;">Belum ada event yang cocok.</p>';
+    var con = container.querySelector("[data-console]");
+    var visible = state.rows.filter(matchesFilters);
+    // console: lama di atas, baru di bawah (append-style)
+    con.innerHTML = visible.length
+      ? visible.slice().reverse().map(lineHtml).join("")
+      : '<div class="su-line su-dim">— tidak ada event yang cocok —</div>';
+    con.scrollTop = con.scrollHeight;
+    refreshActionFilter(container);
   }
 
-  function prepend(container, r) {
-    state.rows.unshift(r);
-    if (state.rows.length > state.maxRows) state.rows.length = state.maxRows;
+  function append(container, r) {
+    state.rows.push(r);
+    if (state.rows.length > state.maxRows) state.rows.splice(0, state.rows.length - state.maxRows);
+    refreshActionFilter(container, r.action);
     if (state.paused || !matchesFilters(r)) return;
-    var log = container.querySelector("[data-log]");
-    var empty = log.querySelector(".dash-status");
-    if (empty) empty.remove();
-    log.insertAdjacentHTML("afterbegin", rowHtml(r));
-    while (log.children.length > state.maxRows) log.lastElementChild.remove();
+    var con = container.querySelector("[data-console]");
+    var dim = con.querySelector(".su-dim");
+    if (dim) dim.remove();
+    var stick = atBottom(con);
+    con.insertAdjacentHTML("beforeend", lineHtml(r));
+    while (con.children.length > state.maxRows) con.firstElementChild.remove();
+    if (stick) con.scrollTop = con.scrollHeight;
   }
 
-  function loadStats(container) {
-    fetch("/api/superkutut/stats", { credentials: "same-origin" })
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (s) {
-        if (!s) return;
-        ["logins_24h", "login_failures_24h", "events_24h", "uploads_24h"].forEach(function (k) {
-          var el = container.querySelector('[data-stat="' + k + '"]');
-          if (el) el.textContent = s[k];
-        });
-      }).catch(function () {});
+  function refreshActionFilter(container, newAction) {
+    var sel = container.querySelector('[data-f="action"]');
+    if (!sel) return;
+    if (newAction && !sel.querySelector('option[value="' + CSS.escape(newAction) + '"]')) {
+      var opt = document.createElement("option");
+      opt.value = newAction;
+      opt.textContent = newAction;
+      sel.appendChild(opt);
+    } else if (!newAction) {
+      var seen = {};
+      state.rows.forEach(function (r) { seen[r.action] = 1; });
+      Object.keys(seen).sort().forEach(function (a) {
+        if (!sel.querySelector('option[value="' + CSS.escape(a) + '"]')) {
+          var o = document.createElement("option");
+          o.value = a; o.textContent = a;
+          sel.appendChild(o);
+        }
+      });
+    }
   }
 
   function loadHistory(container) {
-    var log = container.querySelector("[data-log]");
-    log.innerHTML = '<p class="dash-status" style="padding:1.5rem;text-align:center;">Memuat riwayat…</p>';
+    var con = container.querySelector("[data-console]");
+    con.innerHTML = '<div class="su-line su-dim">Memuat riwayat…</div>';
     fetch("/api/superkutut/logs?limit=200", { credentials: "same-origin" })
       .then(function (r) { if (r.status === 401) { window.location.replace("/mampir-dulu-loh-mas/loh-ya-boleh-wong-ditawari-kok/"); return null; } return r.json(); })
       .then(function (d) {
         if (!d) return;
-        state.rows = d.logs || [];
+        state.rows = (d.logs || []).slice().reverse(); // API DESC -> console ASC
         paintAll(container);
         openStream(container);
       })
-      .catch(function () { log.innerHTML = '<p class="dash-status" style="padding:1.5rem;text-align:center;color:#ff6b6b;">Gagal memuat log.</p>'; });
+      .catch(function () { con.innerHTML = '<div class="su-line" style="color:#ff7b72">Gagal memuat log.</div>'; });
   }
 
   function openStream(container) {
     if (state.es) { try { state.es.close(); } catch (e) {} }
     var dot = container.querySelector("[data-live-dot]");
-    var lastId = state.rows.length ? state.rows[0].id : 0;
+    var lastId = state.rows.length ? state.rows[state.rows.length - 1].id : 0;
     var es = new EventSource("/api/superkutut/logs/stream?after_id=" + lastId);
     state.es = es;
     es.onopen = function () { if (dot) dot.classList.add("is-on"); };
     es.onerror = function () { if (dot) dot.classList.remove("is-on"); };
     es.addEventListener("log", function (ev) {
-      try { prepend(container, JSON.parse(ev.data)); } catch (e) {}
+      try { append(container, JSON.parse(ev.data)); } catch (e) {}
     });
   }
 
@@ -149,8 +175,13 @@
 
     container.querySelector("[data-pause]").addEventListener("click", function () {
       state.paused = !state.paused;
-      this.textContent = state.paused ? "Lanjutkan" : "Jeda";
+      this.textContent = state.paused ? "Resume" : "Pause";
       if (!state.paused) paintAll(container);
+    }, { signal: signal });
+
+    container.querySelector("[data-clear]").addEventListener("click", function () {
+      state.rows = [];
+      paintAll(container);
     }, { signal: signal });
 
     container.querySelector("[data-export]").addEventListener("click", function () {
@@ -167,20 +198,17 @@
       }, { signal: signal });
     });
 
-    loadStats(container);
     loadHistory(container);
-    state.statsTimer = setInterval(function () { loadStats(container); }, 30000);
   }
 
   function onLeave() {
     if (state.ac) try { state.ac.abort(); } catch (e) {}
     if (state.es) { try { state.es.close(); } catch (e) {} state.es = null; }
-    if (state.statsTimer) { clearInterval(state.statsTimer); state.statsTimer = null; }
     state.ac = null;
   }
 
   Router.register(SUPER_PATH, {
-    title: "SUPERKUTUT",
+    title: "SUPERKUTUT · Console",
     render: render,
     onEnter: onEnter,
     onLeave: onLeave,
