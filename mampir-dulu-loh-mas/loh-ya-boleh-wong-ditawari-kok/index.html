@@ -120,11 +120,9 @@
         <button class="tui-btn" type="button" id="btn-cancel">Cancel</button>
         <button class="tui-btn" type="button" id="btn-showpwd" aria-pressed="false">ShowPwd</button>
       </div>
-      <p class="tui-hint">Rate limit: 1 percobaan login / menit / IP.</p>
     </form>
 
     <form id="step-mfa" hidden novalidate>
-      <p class="tui-question">MFA required — masukkan kode TOTP 6 digit dari authenticator.</p>
       <div class="tui-row">
         <label for="su-totp">TOTP</label>
         <input id="su-totp" name="totp" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required />
@@ -133,7 +131,6 @@
         <button class="tui-btn" type="submit" id="btn-verify">Verify</button>
         <button class="tui-btn" type="button" id="btn-back">Back</button>
       </div>
-      <p class="tui-hint">Ticket berlaku 5 menit.</p>
     </form>
 
     <p class="tui-msg" id="su-message" role="alert" aria-live="polite"></p>
@@ -197,7 +194,7 @@
           mfaTicket = res.data.mfa_ticket;
           credsForm.hidden = true;
           mfaForm.hidden = false;
-          setMsg("Kredensial benar. Lanjut verifikasi MFA.", true);
+          setMsg("");
           document.getElementById("su-totp").focus();
           return;
         }
