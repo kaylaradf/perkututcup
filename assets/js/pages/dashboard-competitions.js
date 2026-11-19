@@ -112,7 +112,7 @@
       max-width: 640px;
       max-height: 90vh;
       overflow-y: auto;
-      background: var(--dash-surface);
+      background: var(--dash-swal-bg, #171226);
       border: 1px solid var(--dash-border-mid);
       border-radius: 18px;
       padding: 1.8rem;

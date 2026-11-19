@@ -40,7 +40,7 @@
     "  background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.25);border-radius:8px;color:#fff;}" +
     ".vm-lb-close svg{width:20px;height:20px;}" +
     ".vm-lb-foot{display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap;max-width:90vw;padding:0.7rem 1rem;border-radius:10px;" +
-    "  background:var(--dash-surface,#14161f);border:1px solid rgba(255,255,255,0.12);color:var(--dash-text-body,#ffe8d9);}" +
+    "  background:var(--dash-swal-bg, #171226);border:1px solid rgba(255,255,255,0.12);color:var(--dash-text-body,#ffe8d9);}" +
     ".vm-lb-foot .vdoc-owner{display:block;font-size:0.75rem;color:var(--dash-text-muted);}" +
     "@media (max-width:900px){.vm-grid{grid-template-columns:1fr;}" +
     "  .vm-list{position:static;max-height:none;flex-direction:row;overflow-x:auto;overflow-y:hidden;padding-bottom:6px;}" +

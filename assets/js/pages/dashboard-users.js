@@ -20,7 +20,7 @@
 '    .btn-admin:hover{background:var(--dash-nav-hover);color:var(--dash-text-primary)}' + "\n" +
 '    .admin-modal{position:fixed;inset:0;background:rgba(11,12,16,.75);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:1.5rem;z-index:1000;opacity:0;pointer-events:none;transition:opacity 200ms ease}' + "\n" +
 '    .admin-modal.is-open{opacity:1;pointer-events:auto}' + "\n" +
-'    .admin-modal-card{width:100%;max-width:640px;max-height:90vh;overflow-y:auto;background:var(--dash-surface);border:1px solid var(--dash-border-mid);border-radius:18px;padding:1.8rem;box-shadow:0 20px 45px rgba(0,0,0,.5)}' + "\n" +
+'    .admin-modal-card{width:100%;max-width:640px;max-height:90vh;overflow-y:auto;background:var(--dash-swal-bg, #171226);border:1px solid var(--dash-border-mid);border-radius:18px;padding:1.8rem;box-shadow:0 20px 45px rgba(0,0,0,.5)}' + "\n" +
 '    .admin-modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem;padding-bottom:.8rem;border-bottom:1px solid var(--dash-border-subtle)}' + "\n" +
 '    .admin-modal-head h3{margin:0;font-size:1.1rem;color:var(--dash-text-primary)}' + "\n" +
 '    .btn-close-modal{background:none;border:none;color:var(--dash-text-muted);font-size:1.4rem;cursor:pointer;line-height:1;padding:0 .3rem}' + "\n" +
