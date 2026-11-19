@@ -3,167 +3,137 @@
 ## 1. What is this about
 
 Website kompetisi IT **Perkutut Cup 2026** (Politeknik Negeri Cilacap).
-Berisi halaman publik (landing, about, timeline, sign-in, join) dan dashboard
-(profil/tim, submission) dengan backend autentikasi.
+Halaman publik (landing, about, timeline, sign-in, join) + SPA dashboard
+3 role (peserta, admin, juri) dengan backend FastAPI.
 
-- **Frontend:** HTML + CSS + JavaScript murni (tanpa framework/bundler). Path aset relatif.
-- **Backend:** FastAPI + PostgreSQL (`backend/app.py`), session cookie HttpOnly, CAPTCHA perkalian (HMAC), rate limiting, account lockout. Migrasi: `backend/migrations/0001_initial_schema.sql`.
+- **Frontend publik:** HTML + CSS + JS murni (tanpa framework/bundler).
+- **Dashboard:** SPA shell `app/index.html` + router vanilla (`assets/js/router.js`),
+  modul per halaman di `assets/js/pages/`. Library: SweetAlert2 (dialog/toast) dan
+  Lucide (ikon), di-vendor lokal di `assets/js/vendor/`. zxcvbn untuk meter password.
+- **Backend:** FastAPI + PostgreSQL (`backend/app.py`), session cookie HttpOnly,
+  CAPTCHA perkalian (HMAC), rate limiting, account lockout. Migrasi bernomor di
+  `backend/migrations/` dijalankan otomatis saat startup.
 - **Health check:** `GET /health` → `{"status":"ok"}`.
-- **Deploy staging:** workflow GitHub Actions via Tailscale+SSH ([.github/workflows/staging-deploy.yml](.github/workflows/staging-deploy.yml), butuh GitHub Secrets) atau deploy langsung SCP/SSH. Panduan: [`docs/STAGING-DEPLOY.md`](docs/STAGING-DEPLOY.md).
+- **Deploy staging:** workflow GitHub Actions via Tailscale+SSH
+  ([.github/workflows/staging-deploy.yml](.github/workflows/staging-deploy.yml))
+  atau SCP/SSH langsung + `systemctl restart perkututcup`.
+  Panduan: [`docs/STAGING-DEPLOY.md`](docs/STAGING-DEPLOY.md).
 
-Menjalankan lokal (env backend terpasang):
+Menjalankan lokal:
 
 ```bash
-cd ~/perkututcup
+cp .env.example .env   # isi PERKUTUT_DATABASE_URL, PERKUTUT_ALTCHA_HMAC_KEY, dll.
 set -a && . ./.env && set +a
-.venv/bin/uvicorn backend.app:app --host 0.0.0.0 --port 8000
+PYTHONPATH=backend .venv/bin/uvicorn app:app --host 0.0.0.0 --port 8000
 # buka http://localhost:8000/
 ```
+
+Konfigurasi env (lihat `.env.example`): `PERKUTUT_DATABASE_URL` (wajib),
+`PERKUTUT_ALTCHA_HMAC_KEY` (wajib, kunci HMAC CAPTCHA), `PERKUTUT_WHATSAPP_URL`
+(opasional; tombol "Join the WhatsApp Group" di dashboard hanya tampil bila diisi),
+`PERKUTUT_UPLOAD_DIR` (opsional; default `uploads/`).
 
 ## 2. Tree project directory
 
 ```
 perkututcup/
 ├── index.html                  # Landing page
-├── 404.html                    # Halaman not-found
-├── styles.css                  # Stylesheet global semua halaman
-├── dashboard.css               # Stylesheet khusus dashboard
-├── auth-motion.css             # Animasi halaman auth (sign-in, join)
-├── script.js                   # Semua interaksi frontend
-├── .github/workflows/          # staging-deploy.yml
-├── backend/
-│   ├── app.py                  # FastAPI: auth/session/CAPTCHA/health
-│   └── migrations/0001_initial_schema.sql
-├── .gitignore
-├── README.md
+├── 404.html                    # Not-found (path aset root-absolute; juga dipakai guard server)
+├── styles.css                  # Stylesheet global halaman publik/auth
+├── dashboard.css               # Stylesheet dashboard (sidebar, card, vdoc rows, swal, dll.)
+├── auth-motion.css             # Animasi halaman auth
+├── script.js                   # Interaksi halaman publik + auth (selector-guarded IIFE)
+├── .env.example
+├── .github/workflows/staging-deploy.yml
 │
-├── about/
-│   └── index.html              # Disclaimer / policy
-├── timeline/
-│   └── index.html              # Placeholder "Coming Soon"
-├── sign-in/
-│   └── index.html              # Login
-├── join/
-│   └── index.html              # Registrasi
+├── app/
+│   └── index.html              # SPA shell dashboard; server inject __APP_STATE__ + cache-bust ?v=mtime
 │
-├── dashboard/
-│   ├── profile/
-│   │   └── index.html          # Profile & Team
-│   └── submission/
-│       └── index.html          # Project Submission
+├── about/index.html            # Disclaimer / policy
+├── timeline/index.html         # Coming soon
+├── sign-in/index.html          # Login + CAPTCHA
+├── join/index.html             # Registrasi + kebijakan password + CAPTCHA
 │
 ├── assets/
 │   ├── fonts/                  # 3 font lokal (Game Paused, I Pixel U, Terminess Mono)
-│   ├── images/
-│   │   ├── logo-navbar-final.png, mascot-figma.png, team-photo.png,
-│   │   ├── sponsor-final-1..6.png
-│   │   └── dashboard/          # Thumbnail upload + avatar tim
-│   └── svg/
-│       ├── favicon.svg, mascot-halo.svg, sparkle*.svg, chevron-down.svg
-│       ├── arrow-up-right.svg, icon-*.svg
-│       └── dashboard/          # 26 ikon sidebar, metric, watermark
+│   ├── images/                 # Logo, maskot, tim, sponsor
+│   ├── svg/                    # Ikon publik + auth; svg/dashboard/ untuk sidebar & metric
+│   └── js/
+│       ├── router.js           # SPA router + guard role client-side
+│       ├── pages/
+│       │   ├── dashboard-common.js        # Sidebar per role, tema, logout, wrapper Swal/Lucide
+│       │   ├── dashboard-profile.js       # Peserta: profil, dokumen, tim
+│       │   ├── dashboard-submission.js    # Peserta: kartu soal + unggah karya
+│       │   ├── dashboard-verifications.js # Admin: antrean verifikasi berkas
+│       │   ├── dashboard-competitions.js  # Admin: CRUD kompetisi + soal
+│       │   ├── dashboard-users.js         # Admin: kelola pengguna/role
+│       │   └── dashboard-jury.js          # Juri: penilaian karya
+│       ├── vendor/             # sweetalert2.all.min.js, lucide.min.js (lokal, tanpa CDN)
+│       └── zxcvbn.js           # Meter kekuatan password
 │
-└── docs/
-    ├── UPDATES.md              # Changelog update mayor
-    ├── ASSESSMENT.md           # Asesmen & kontrak backend
-    ├── FRONTEND.md             # Dokumentasi frontend
-    ├── AUTH-UPDATES.md         # Auth/password/CAPTCHA
-    ├── ACCOUNT-LOCKOUT.md      # Lockout & pelaporan error
-    ├── RATE-LIMITING.md        # Rate limiting
-    ├── STAGING-DEPLOY.md       # Ringkas konfigurasi deploy staging (GitHub Actions)
-    └── DEPLOY-PIPELINE.md      # Mekanisme deploy server lengkap (CI + manual, runbook)
+├── backend/
+│   ├── app.py                  # FastAPI: auth, profil/tim, dokumen, verifikasi,
+│   │                           #   kompetisi (+soal), submisi, penilaian juri, admin user
+│   ├── migrations/             # 0001..0005, auto-run saat startup (tabel schema_migrations)
+│   └── requirements.txt
+│
+├── uploads/                    # (gitignored) berkas dokumen & submisi peserta
+└── docs/                       # Lihat §5
 ```
 
-## 3. Penjelasan file
+## 3. Role & halaman dashboard
 
-### Halaman HTML
+Sidebar dirender per role oleh `dashboard-common.js`; guard ganda:
+server (redirect/404 di `app.py`) + client (`router.js`).
+
+| Role | Tab | Landing setelah login |
+| --- | --- | --- |
+| `user` (peserta) | PROFILE & TEAM, PROJECT SUBMISSION | `/dashboard/profile/` |
+| `admin` | VERIFIKASI BERKAS, KELOLA KOMPETISI, KELOLA PENGGUNA | `/dashboard/verifications/` |
+| `jury` | PENILAIAN KARYA | `/dashboard/jury/` |
+
+Tidak ada role `committee` (dihapus di migrasi 0005).
+
+Alur inti:
+
+1. Daftar (`/join/`) / masuk (`/sign-in/`) dengan CAPTCHA → session cookie HttpOnly.
+2. Peserta: lengkapi profil + unggah KTM/pasfoto/twibbon per anggota + bukti bayar
+   (ketua tim) → admin verifikasi per berkas (setujui/tolak dengan catatan Swal).
+3. Tim berstatus VERIFIED → tab submission terbuka: kartu **SOAL KOMPETISI**
+   (diisi admin via Kelola Kompetisi → field "Soal / Problem Statement") + unggah
+   karya (maks 50MB) → auto-assign round-robin ke 1 juri.
+4. Juri menilai (skor + feedback) → hasil tampil di halaman submission peserta.
+
+Kredensial default staging ada di `backend/migrations/0004_default_credentials.sql`
+(admin/juri/peserta `@perkutut.web.id`) — ganti sebelum produksi.
+
+## 4. Catatan teknis
+
+- **Cache Cloudflare:** edge men-cache `/assets` 4 jam. Shell SPA men-cache-bust
+  URL JS/CSS dengan `?v=<mtime>` agar deploy langsung terlihat tanpa purge.
+- **404:** `404.html` memakai path root-absolute karena file yang sama disajikan
+  sebagai respons guard di URL dashboard (tanpa session → 404).
+- **Dialog:** semua konfirmasi/alert dashboard memakai SweetAlert2 via
+  `DashCommon.alertMsg/toast/confirmMsg` (tema mengikuti token dashboard).
+- **Migrasi:** hanya tambah file `NNNN_nama.sql` berikutnya; jangan edit yang
+  sudah diterapkan. Migrasi harus backward-compatible (rollback kode tidak
+  membalik skema).
+- **Upload:** disimpan di `uploads/` (di luar git), disajikan lewat
+  `/api/documents/{id}/file` dengan cek kepemilikan/role, bukan path publik.
+
+## 5. Docs
 
 | File | Isi |
 | --- | --- |
-| `index.html` | Landing: hero `#home`, tema `#theme-introduction`, langkah daftar `#get-started`, tim, 8 kartu kompetisi `#competition`, FAQ `#faq`, footer. |
-| `about/index.html` | Teks disclaimer dalam `.policy-stage`. Tidak ada data dinamis. |
-| `timeline/index.html` | Placeholder berisi `.coming-soon-title`. |
-| `sign-in/index.html` | Form login `[data-auth-form="sign-in"]`. Submit memanggil API auth; CAPTCHA diperlukan; redirect ke dashboard saat sukses. |
-| `join/index.html` | Form registrasi `[data-auth-form="join"]` dengan kebijakan password + meter + CAPTCHA; redirect ke dashboard saat sukses. |
-| `dashboard/profile/index.html` | Figma `308:2`. Sidebar, 3 metric, form data pribadi, 4 kartu upload, kartu My Team + bukti pembayaran. |
-| `dashboard/submission/index.html` | Figma `308:255`. Metric deadline, guide, deskripsi kompetisi, problem files, tab pengumpulan. |
-| `404.html` | Halaman not-found (judul "404" + subtitle). |
-
-### CSS
-
-| File | Isi |
-| --- | --- |
-| `styles.css` | Stylesheet global (token `:root`, layout komponen publik/auth, dekor, responsive). **Jangan dipindah** — path font relatif ke root. |
-| `dashboard.css` | Khusus dashboard (sidebar, metric, card, form, upload, team, submission). Dimuat setelah `styles.css`. |
-| `auth-motion.css` | Animasi halaman auth (sign-in, join). |
-
-Token utama (`styles.css` `:root`): `--obsidian-top`, `--mid`, `--deep-footer`,
-`--sunset-coral`, `--soft-violet`, `--cream`, `--lavender`, `--card`, `--grad`.
-
-### JavaScript & Backend
-
-| File | Isi |
-| --- | --- |
-| `script.js` | Satu IIFE (selector-guarded). UI publik + auth: validasi inline, submit ke API, CAPTCHA load/refresh (reset tiap gagal), dialog error (`showAuthError`), interaksi dashboard. |
-| `auth-guard.js` | Legacy guard client-side (jika masih dimuat). Akses dashboard seharusnya dikendalikan session server. |
-| `backend/app.py` | FastAPI: auth/session, CAPTCHA, rate limiting, lockout, profil/tim, `/health`. |
-
-### Assets & Docs
-
-- `assets/fonts/` — 3 font lokal. `assets/images/` — logo/maskot/sponsor/tim + thumbnail dashboard. `assets/svg/` — ikon publik dan dashboard.
-- `docs/` — changelog (`UPDATES.md`), asesmen/kontrak (`ASSESSMENT.md`), frontend (`FRONTEND.md`), auth/CAPTCHA (`AUTH-UPDATES.md`), lockout/error (`ACCOUNT-LOCKOUT.md`), rate limit (`RATE-LIMITING.md`), deploy staging (`STAGING-DEPLOY.md`, `DEPLOY-PIPELINE.md`).
-
-## 4. Struktur web
-
-```
-Perkutut Cup 2026
-│
-├── Publik
-│   ├── /                    Landing
-│   ├── /about/              Disclaimer
-│   ├── /timeline/           Coming soon
-│   ├── /join/               Registrasi
-│   └── /404.html            Not found
-│
-├── Auth (FastAPI)
-│   ├── /sign-in/  ──────►  login + CAPTCHA → session → /dashboard/profile/
-│   └── /join/     ──────►  register + CAPTCHA → session → /dashboard/profile/
-│
-└── User Portal (session server)
-    ├── /dashboard/profile/      Profile & Team
-    └── /dashboard/submission/   Project Submission
-```
-
-Alur ringkas:
-
-1. User daftar (`/join/`) atau masuk (`/sign-in/`) dengan CAPTCHA.
-2. Backend memvalidasi (kebijakan password/rate limit/lockout) dan membuat session cookie HttpOnly.
-3. Dashboard memakai session server; logout menghapus session.
-4. Error auth: validasi/CAPTCHA tertentu inline, kredensial/lockout/rate limit via dialog. CAPTCHA di-reset tiap percobaan gagal.
-
-Aset: publik `styles.css` → `script.js`; auth tambah `auth-motion.css`; dashboard `styles.css` → `dashboard.css` → `script.js` (+ guard client-side bila masih ada).
-
-## 5. Todolist
-
-**Backend & auth**
-
-- [x] Endpoint auth inti: login/register/logout/session (`backend/app.py`, kontrak `docs/ASSESSMENT.md`).
-- [x] Session cookie HttpOnly + CAPTCHA/rate limiting/account lockout.
-- [x] `GET /health` untuk pemeriksaan layanan.
-- [ ] Guard dashboard sepenuhnya server-side pada semua route sensitif + hapus `auth-guard.js` bila sudah tidak dipakai.
-- [ ] Alur reset password self-service (saat ini via admin).
-
-**Dashboard & submission**
-
-- [ ] `GET /api/me` + `PATCH /api/me` dan `GET /api/team` terhubung penuh ke UI/data nyata.
-- [ ] Upload dokumen: multipart ke object storage, signed URL untuk preview.
-- [ ] `GET /api/submission`, download problem file dengan validasi window server-side.
-- [ ] Isi konten tab per item (saat ini panel dapat dipakai bersama).
-
-**Deploy & kualitas**
-
-- [ ] Aktifkan CI/CD staging: set GitHub Secrets (Tailscale/SSH) atau pasang service persisten di server; lihat [`docs/STAGING-DEPLOY.md`](docs/STAGING-DEPLOY.md).
-- [ ] Ganti link placeholder: `#whatsapp`, `#problem-files`, `data-view-upload`, `https://instagram.com/`.
-- [ ] Samakan bahasa copy (campur ID/EN), tambah meta description/Open Graph.
-- [ ] Kompres aset (font/gambar → WebP/AVIF/subset), rapikan duplikasi CSS, ekstrak sidebar dashboard.
-- [ ] Validasi HTML + Lighthouse CI. Pastikan 404 konsisten di server/reverse proxy.
+| `docs/UPDATES.md` | Changelog update mayor |
+| `docs/BUSINESS-LOGIC.md` | Aturan bisnis 3 role, verifikasi, penilaian |
+| `docs/ASSESSMENT.md` | Asesmen & kontrak backend |
+| `docs/FRONTEND.md` | Dokumentasi frontend |
+| `docs/AUTH-UPDATES.md` | Auth/password/CAPTCHA |
+| `docs/ACCOUNT-LOCKOUT.md` | Lockout & pelaporan error |
+| `docs/RATE-LIMITING.md` | Rate limiting |
+| `docs/COMPETITIONS-REGISTRATION.md` | Kompetisi & pendaftaran |
+| `docs/ADMIN-CMS-USERS.md` | Manajemen pengguna admin |
+| `docs/STAGING-DEPLOY.md` | Konfigurasi deploy staging (GitHub Actions) |
+| `docs/DEPLOY-PIPELINE.md` | Mekanisme deploy lengkap (CI + manual, runbook) |
+| `docs/Infra/` | Catatan infrastruktur server |
