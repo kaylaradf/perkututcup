@@ -322,6 +322,7 @@ def format_competition(comp: dict) -> dict:
         "name": comp["name"],
         "audience": comp["audience"],
         "description": comp.get("description"),
+        "problem_statement": comp.get("problem_statement"),
         "participation_type": comp["participation_type"],
         "min_team_members": comp["min_team_members"],
         "max_team_members": comp["max_team_members"],
@@ -673,6 +674,7 @@ class AdminCompetitionCreateIn(BaseModel):
     name: str = Field(min_length=2, max_length=100)
     audience: str = Field(default="SEMUA JENJANG", max_length=50)
     description: str | None = Field(default=None, max_length=500)
+    problem_statement: str | None = Field(default=None, max_length=20000)
     participation_type: str = Field(default="TEAM")
     min_team_members: int = Field(default=1, ge=1)
     max_team_members: int = Field(default=1, ge=1)
@@ -709,6 +711,7 @@ class AdminCompetitionUpdateIn(BaseModel):
     name: str | None = Field(default=None, min_length=2, max_length=100)
     audience: str | None = Field(default=None, max_length=50)
     description: str | None = Field(default=None, max_length=500)
+    problem_statement: str | None = Field(default=None, max_length=20000)
     participation_type: str | None = None
     min_team_members: int | None = Field(default=None, ge=1)
     max_team_members: int | None = Field(default=None, ge=1)
@@ -787,11 +790,11 @@ def admin_create_competition(payload: AdminCompetitionCreateIn, request: Request
             row = conn.execute(
                 """
                 INSERT INTO competitions (
-                    slug, name, audience, description, participation_type,
+                    slug, name, audience, description, problem_statement, participation_type,
                     min_team_members, max_team_members, status,
                     registration_start, registration_end
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING *
                 """,
                 (
@@ -799,6 +802,7 @@ def admin_create_competition(payload: AdminCompetitionCreateIn, request: Request
                     payload.name.strip(),
                     payload.audience.strip(),
                     payload.description.strip() if payload.description else None,
+                    payload.problem_statement.strip() if payload.problem_statement else None,
                     ptype,
                     min_m,
                     max_m,
@@ -886,6 +890,7 @@ def admin_update_competition(comp_id_or_slug: str, payload: AdminCompetitionUpda
         name = payload.name.strip() if payload.name is not None else current["name"]
         audience = payload.audience.strip() if payload.audience is not None else current["audience"]
         desc = payload.description.strip() if payload.description is not None else current["description"]
+        problem = payload.problem_statement.strip() if payload.problem_statement is not None else current.get("problem_statement")
         status = payload.status.upper() if payload.status is not None else current["status"]
 
         updated = conn.execute(
@@ -894,6 +899,7 @@ def admin_update_competition(comp_id_or_slug: str, payload: AdminCompetitionUpda
             SET name = %s,
                 audience = %s,
                 description = %s,
+                problem_statement = %s,
                 participation_type = %s,
                 min_team_members = %s,
                 max_team_members = %s,
@@ -907,6 +913,7 @@ def admin_update_competition(comp_id_or_slug: str, payload: AdminCompetitionUpda
                 name,
                 audience,
                 desc,
+                problem or None,
                 p_type,
                 min_m,
                 max_m,
@@ -981,7 +988,7 @@ def admin_delete_competition(comp_id_or_slug: str, request: Request):
 
 # ------------------------------------------------- admin user management
 
-USER_ROLES = {"user", "admin", "jury", "committee"}
+USER_ROLES = {"user", "admin", "jury"}
 
 
 def format_user(row: dict) -> dict:
@@ -2160,7 +2167,7 @@ def get_team_submissions(request: Request, competition_slug: str | None = None):
             team_row = conn.execute(
                 """
                 SELECT t.id, t.verification_status, t.competition_id, c.name AS comp_name,
-                       c.slug AS comp_slug, c.status AS comp_status, tm.role AS caller_role
+                       c.slug AS comp_slug, c.status AS comp_status, c.problem_statement, tm.role AS caller_role
                 FROM team_members tm
                 JOIN teams t ON t.id = tm.team_id
                 LEFT JOIN competitions c ON c.id = t.competition_id
@@ -2173,7 +2180,7 @@ def get_team_submissions(request: Request, competition_slug: str | None = None):
             team_row = conn.execute(
                 """
                 SELECT t.id, t.verification_status, t.competition_id, c.name AS comp_name,
-                       c.slug AS comp_slug, c.status AS comp_status, tm.role AS caller_role
+                       c.slug AS comp_slug, c.status AS comp_status, c.problem_statement, tm.role AS caller_role
                 FROM team_members tm
                 JOIN teams t ON t.id = tm.team_id
                 LEFT JOIN competitions c ON c.id = t.competition_id
@@ -2219,6 +2226,7 @@ def get_team_submissions(request: Request, competition_slug: str | None = None):
         "competition": {
             "name": team_row["comp_name"],
             "slug": team_row["comp_slug"],
+            "problem_statement": team_row.get("problem_statement"),
         },
         "submission": (
             {

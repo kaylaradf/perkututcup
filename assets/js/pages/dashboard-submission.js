@@ -77,6 +77,19 @@
       '</div>';
   }
 
+  function soalBox(comp) {
+    var body = comp.problem_statement
+      ? '<p style="margin:0; white-space:pre-wrap; font-size:0.85rem; line-height:1.7; color:var(--dash-text-body);">' + escapeHtml(comp.problem_statement) + '</p>'
+      : '<p style="margin:0; font-size:0.85rem; color:var(--dash-text-muted); font-style:italic;">Soal belum dirilis oleh panitia. Cek kembali secara berkala.</p>';
+    return (
+      '<section class="card card--flush" style="margin-bottom:1.5rem;">' +
+      '  <span class="card-top-bar" aria-hidden="true"></span>' +
+      '  <h2 class="card-title" style="display:flex; align-items:center; gap:8px;"><i data-lucide="file-text" style="width:18px;height:18px;"></i> SOAL KOMPETISI' + (comp.name ? ' — ' + escapeHtml(comp.name) : '') + '</h2>' +
+      body +
+      '</section>'
+    );
+  }
+
   function renderVerifiedView(area, data, signal) {
     var comp = data.competition || {};
     var sub = data.submission;
@@ -112,7 +125,7 @@
         '    <div>' +
         '      <span style="font-size:0.7rem; color:var(--soft-violet); font-family:var(--font-mono); font-weight:700;">KARYA YANG SUDAH DIUNGGAH</span>' +
         '      <h4 style="margin:0.2rem 0; font-size:1rem; color:var(--cream);">' + escapeHtml(sub.original_name) + '</h4>' +
-        '      <span style="font-size:0.72rem; color:var(--dash-text-muted); font-family:var(--font-mono);">Ukuran: ' + (sub.file_size ? (sub.file_size / 1024 / 1024).toFixed(2) + ' MB' : '—') + ' • Diunggah: ' + (sub.submitted_at || '—') + '</span>' +
+        '      <span style="font-size:0.72rem; color:var(--dash-text-muted); font-family:var(--font-mono);">Ukuran: ' + (sub.file_size ? (sub.file_size / 1024 / 1024).toFixed(2) + ' MB' : '—') + ' • Diunggah: ' + (sub.submitted_at ? new Date(sub.submitted_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) : '—') + '</span>' +
         '    </div>' +
         '    <a class="btn-save" href="' + sub.download_url + '" download style="padding:0.45rem 1rem; font-size:0.75rem; text-decoration:none;">UNDUH SUBMISI ⬇</a>' +
         '  </div>' +
@@ -148,6 +161,7 @@
       '  </article>' +
       '</section>' +
       evalBox +
+      soalBox(comp) +
       '<div class="dash-grid dash-grid--even">' +
       '  <div class="dash-col">' +
       '    <section class="card card--flush">' +
@@ -171,12 +185,13 @@
       '      <span class="card-top-bar is-rainbow" aria-hidden="true"></span>' +
       '      <h2 class="card-title">' + (sub ? 'UNGGAH ULANG / PERBARUI KARYA' : 'UNGGAH KARYA KOMPETISI') + '</h2>' +
       '      <p class="card-lead">Pilih file karya akhir Anda untuk dinilai oleh dewan juri.</p>' +
-             subInfoBox +
       '      <form id="submission-form" style="display:flex; flex-direction:column; gap:1rem;">' +
-      '        <label class="field">' +
+             subInfoBox +
+      '        <div class="field">' +
       '          <span>PILIH FILE KARYA (MAKSIMAL 50MB)</span>' +
-      '          <input type="file" id="sub-file-input" class="input" accept=".zip,.tar.gz,.tgz,.pdf,.pkt,.pka,.docx,.txt" required style="padding:0.5rem;" />' +
-      '        </label>' +
+      '          <input type="file" id="sub-file-input" accept=".zip,.tar.gz,.tgz,.pdf,.pkt,.pka,.docx,.txt" required hidden />' +
+      '          <button type="button" class="file-drop" id="sub-file-drop"><i data-lucide="upload-cloud"></i><span data-file-label>Klik untuk pilih file karya (.zip, .pdf, .pkt, …)</span></button>' +
+      '        </div>' +
       '        <label class="field">' +
       '          <span>CATATAN TAMBAHAN UNTUK JURI (OPSIONAL)</span>' +
       '          <textarea id="sub-notes-input" class="input" rows="3" placeholder="Tuliskan catatan teknis atau tautan pendukung (opsional)...">' + (sub && sub.notes ? escapeHtml(sub.notes) : '') + '</textarea>' +
@@ -190,6 +205,19 @@
       '  </div>' +
       '</div>';
 
+    window.DashCommon.refreshIcons();
+
+    var fileDrop = area.querySelector("#sub-file-drop");
+    var fileInputEl = area.querySelector("#sub-file-input");
+    var fileLabel = area.querySelector("[data-file-label]");
+    if (fileDrop && fileInputEl) {
+      fileDrop.addEventListener("click", function () { fileInputEl.click(); }, { signal: signal });
+      fileInputEl.addEventListener("change", function () {
+        var f = fileInputEl.files && fileInputEl.files[0];
+        if (fileLabel) fileLabel.textContent = f ? f.name + " (" + (f.size / 1024 / 1024).toFixed(2) + " MB)" : "Klik untuk pilih file karya (.zip, .pdf, .pkt, …)";
+        fileDrop.classList.toggle("has-file", !!f);
+      }, { signal: signal });
+    }
     var subForm = area.querySelector("#submission-form");
     if (!subForm) return;
 
@@ -228,14 +256,13 @@
         })
         .then(function (r) {
           if (r.ok) {
-            if (statusEl) statusEl.textContent = "Karya berhasil diunggah!";
-            setTimeout(function () { initSubmission(area.parentElement, signal); }, 1200);
+            window.DashCommon.alertMsg("success", "Karya terkirim!", "Karya Anda berhasil diunggah dan dialokasikan ke dewan juri.").then(function () { initSubmission(area.parentElement, signal); });
           } else {
-            if (statusEl) statusEl.textContent = r.data.detail || "Gagal mengunggah karya.";
+            window.DashCommon.alertMsg("error", "Gagal mengunggah", typeof r.data.detail === "string" ? r.data.detail : "Gagal mengunggah karya.");
           }
         })
         .catch(function () {
-          if (statusEl) statusEl.textContent = "Gagal menghubungi server.";
+          window.DashCommon.alertMsg("error", "Koneksi gagal", "Tidak dapat menghubungi server.");
         })
         .finally(function () {
           btn.disabled = false;

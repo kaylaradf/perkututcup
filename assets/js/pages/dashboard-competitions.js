@@ -308,6 +308,11 @@
           <textarea class="input" name="description" id="field-description" rows="2" style="height:auto; padding:0.6rem 0.8rem; font-family:inherit;" placeholder="Penjelasan singkat mengenai cabang lomba ini"></textarea>
         </label>
 
+        <label class="field">
+          <span>SOAL / PROBLEM STATEMENT (DITAMPILKAN KE PESERTA TERVERIFIKASI)</span>
+          <textarea class="input" name="problem_statement" id="field-problem" rows="6" style="height:auto; padding:0.6rem 0.8rem; font-family:inherit;" placeholder="Tuliskan deskripsi soal, ketentuan, dan tautan berkas soal (mis. link Google Drive). Kosongkan bila soal belum dirilis."></textarea>
+        </label>
+
         <span class="form-divider" style="margin:1rem 0;"></span>
 
         <h4 style="margin:0 0 0.8rem; font-size:0.82rem; font-family:var(--font-mono); color:var(--soft-violet);">ATURAN PARTISIPASI &amp; KUOTA</h4>
@@ -398,6 +403,7 @@
       const fAudience = document.getElementById("field-audience");
       const fStatus = document.getElementById("field-status");
       const fDescription = document.getElementById("field-description");
+      const fProblem = document.getElementById("field-problem");
       const fType = document.getElementById("field-type");
       const fMin = document.getElementById("field-min");
       const fMax = document.getElementById("field-max");
@@ -460,6 +466,7 @@
           fAudience.value = comp.audience || "SEMUA JENJANG";
           fStatus.value = comp.status;
           fDescription.value = comp.description || "";
+          fProblem.value = comp.problem_statement || "";
           fType.value = comp.participation_type;
           fMin.value = comp.min_team_members;
           fMax.value = comp.max_team_members;
@@ -476,6 +483,7 @@
           fAudience.value = "SEMUA JENJANG";
           fStatus.value = "OPEN";
           fDescription.value = "";
+          fProblem.value = "";
           fType.value = "TEAM";
           fMin.value = "1";
           fMax.value = "3";
@@ -556,14 +564,16 @@
             btn.addEventListener("click", async function () {
               const slug = btn.getAttribute("data-delete-slug");
               const name = btn.getAttribute("data-delete-name") || slug;
-              if (!confirm(`Hapus kompetisi "${name}"? Tindakan ini permanen. Jika masih ada tim/peserta terkait, backend akan menolak penghapusan.`)) return;
+              const yes = await window.DashCommon.confirmMsg(`Hapus kompetisi "${name}"?`, "Tindakan ini permanen. Jika masih ada tim/peserta terkait, penghapusan akan ditolak.", "Hapus");
+              if (!yes) return;
               btn.disabled = true;
               try {
                 const res = await fetch(`/api/admin/competitions/${encodeURIComponent(slug)}`, { method: "DELETE", credentials: "same-origin", signal: signal });
                 const data = await res.json().catch(() => ({}));
-                if (!res.ok) { alert(data.detail || `Gagal menghapus kompetisi (${res.status}).`); btn.disabled = false; return; }
+                if (!res.ok) { window.DashCommon.alertMsg("error", "Gagal menghapus", data.detail || `Gagal menghapus kompetisi (${res.status}).`); btn.disabled = false; return; }
+                window.DashCommon.toast("success", "Kompetisi dihapus.");
                 loadAdminCompetitions();
-              } catch (err) { if (err && err.name === "AbortError") return; alert("Tidak dapat menghubungi server."); btn.disabled = false; }
+              } catch (err) { if (err && err.name === "AbortError") return; window.DashCommon.alertMsg("error", "Koneksi gagal", "Tidak dapat menghubungi server."); btn.disabled = false; }
             }, { signal: signal });
           });
         } catch (err) {
@@ -589,6 +599,7 @@
           name: fName.value.trim(),
           audience: fAudience.value,
           description: fDescription.value.trim() || null,
+          problem_statement: fProblem.value.trim(),
           participation_type: fType.value,
           min_team_members: fType.value === "INDIVIDUAL" ? 1 : minVal,
           max_team_members: fType.value === "INDIVIDUAL" ? 1 : maxVal,

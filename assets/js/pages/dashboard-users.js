@@ -14,7 +14,7 @@
 '    .role-badge{display:inline-flex;padding:.2rem .55rem;border-radius:6px;font-size:.65rem;font-weight:700;font-family:var(--font-mono);text-transform:uppercase;border:1px solid var(--dash-border-mid)}' + "\n" +
 '    .role-admin{color:#bf8fee;background:rgba(134,68,162,.16);border-color:rgba(134,68,162,.3)}' + "\n" +
 '    .role-user{color:var(--dash-text-body);background:rgba(255,232,217,.06)}' + "\n" +
-'    .role-jury,.role-committee{color:#f1c40f;background:rgba(241,196,15,.14);border-color:rgba(241,196,15,.3)}' + "\n" +
+'    .role-jury{color:#f1c40f;background:rgba(241,196,15,.14);border-color:rgba(241,196,15,.3)}' + "\n" +
 '    .btn-admin{display:inline-flex;align-items:center;gap:5px;padding:.35rem .75rem;border:1px solid var(--dash-border-mid);border-radius:8px;background:rgba(255,232,217,.06);color:var(--dash-text-body);font-family:var(--font-mono);font-size:.7rem;cursor:pointer}' + "\n" +
 '    .btn-admin:hover{background:var(--dash-nav-hover);color:var(--dash-text-primary)}' + "\n" +
 '    .admin-modal{position:fixed;inset:0;background:rgba(11,12,16,.75);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:1.5rem;z-index:1000;opacity:0;pointer-events:none;transition:opacity 200ms ease}' + "\n" +
@@ -85,7 +85,6 @@
 '              <option value="user">user</option>' + "\n" +
 '              <option value="admin">admin</option>' + "\n" +
 '              <option value="jury">jury</option>' + "\n" +
-'              <option value="committee">committee</option>' + "\n" +
 '            </select>' + "\n" +
 '          </label>' + "\n" +
 '          <label class="field"><span>PASSWORD</span><input class="input" type="password" id="field-password" autocomplete="new-password" placeholder="Kosongkan jika tidak diubah" /></label>' + "\n" +

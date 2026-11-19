@@ -133,54 +133,40 @@
           return '<span style="font-size:0.75rem; color:var(--dash-text-muted);">' + escapeHtml(m.full_name) + ' (' + (m.role === 'leader' ? 'Ketua' : 'Anggota') + ')</span>';
         }).join(" • ");
 
-        // Documents table
+        // Documents: compact responsive rows (no overflowing table)
         var docsHtml = "";
         if (!t.documents || !t.documents.length) {
           docsHtml = '<p style="color:var(--dash-text-muted); font-size:0.8rem; font-style:italic; margin:0.8rem 0;">Belum ada berkas yang diunggah oleh peserta.</p>';
         } else {
-          docsHtml =
-            '<div style="overflow-x:auto; margin-top:0.8rem;">' +
-            '<table style="width:100%; border-collapse:collapse; font-size:0.78rem;">' +
-            '  <thead>' +
-            '    <tr style="border-bottom:1px solid var(--dash-border-mid); text-align:left; color:var(--dash-text-muted); font-family:var(--font-mono);">' +
-            '      <th style="padding:0.5rem;">DOKUMEN</th>' +
-            '      <th style="padding:0.5rem;">PEMILIK / FILE</th>' +
-            '      <th style="padding:0.5rem;">STATUS</th>' +
-            '      <th style="padding:0.5rem;">CATATAN FEEDBACK</th>' +
-            '      <th style="padding:0.5rem; text-align:right;">AKSI</th>' +
-            '    </tr>' +
-            '  </thead>' +
-            '  <tbody>';
-
+          docsHtml = '<div class="vdoc-list">';
           t.documents.forEach(function (d) {
             var docLabel = DOC_LABELS[d.document_type] || d.document_type;
-            var docStatusBadge = "";
+            var badge, actions = "";
             if (d.status === "APPROVED") {
-              docStatusBadge = '<span style="color:#2ecc71; font-weight:700;">✓ Disetujui</span>';
+              badge = '<span class="vdoc-badge is-approved">✓ Disetujui</span>';
             } else if (d.status === "REJECTED") {
-              docStatusBadge = '<span style="color:#ff6b6b; font-weight:700;">✗ Ditolak</span>';
+              badge = '<span class="vdoc-badge is-rejected">✗ Ditolak</span>';
+              actions = '<button type="button" class="vdoc-btn is-approve" data-action="approve" data-doc-id="' + d.id + '">✓ Setujui</button>';
             } else {
-              docStatusBadge = '<span style="color:#f1c40f; font-weight:700;">⏳ Menunggu</span>';
+              badge = '<span class="vdoc-badge is-pending">⏳ Menunggu</span>';
+              actions =
+                '<button type="button" class="vdoc-btn is-approve" data-action="approve" data-doc-id="' + d.id + '">✓ Setujui</button>' +
+                '<button type="button" class="vdoc-btn is-reject" data-action="reject" data-doc-id="' + d.id + '">✗ Tolak</button>';
             }
-
-            var feedbackText = d.feedback ? '<span style="color:#ff6b6b; font-size:0.72rem;">' + escapeHtml(d.feedback) + '</span>' : '<span style="color:var(--dash-text-muted); font-size:0.72rem;">—</span>';
-
+            var feedback = d.feedback ? '<p class="vdoc-feedback">Catatan: ' + escapeHtml(d.feedback) + '</p>' : '';
             docsHtml +=
-              '<tr style="border-bottom:1px solid rgba(255,255,255,0.05);">' +
-              '  <td style="padding:0.6rem 0.5rem;"><strong>' + escapeHtml(docLabel) + '</strong></td>' +
-              '  <td style="padding:0.6rem 0.5rem;">' +
-              '    <div>' + escapeHtml(d.member_name || 'Tim') + '</div>' +
-              '    <a href="' + d.download_url + '" target="_blank" style="color:var(--soft-violet); text-decoration:underline; font-size:0.72rem;">' + escapeHtml(d.original_name) + '</a>' +
-              '  </td>' +
-              '  <td style="padding:0.6rem 0.5rem;">' + docStatusBadge + '</td>' +
-              '  <td style="padding:0.6rem 0.5rem; max-width:200px;">' + feedbackText + '</td>' +
-              '  <td style="padding:0.6rem 0.5rem; text-align:right; white-space:nowrap;">' +
-              '    <button type="button" class="btn-save" data-action="approve" data-doc-id="' + d.id + '" style="padding:0.3rem 0.6rem; font-size:0.7rem; background:#2ecc71; margin-right:4px;">✓ Setuju</button>' +
-              '    <button type="button" class="btn-save" data-action="reject" data-doc-id="' + d.id + '" style="padding:0.3rem 0.6rem; font-size:0.7rem; background:#e74c3c;">✗ Tolak</button>' +
-              '  </td>' +
-              '</tr>';
+              '<article class="vdoc-row">' +
+              '  <div class="vdoc-main">' +
+              '    <strong>' + escapeHtml(docLabel) + '</strong>' +
+              '    <span class="vdoc-owner">' + escapeHtml(d.member_name || 'Tim') + ' · <a href="' + d.download_url + '" target="_blank" rel="noopener">' + escapeHtml(d.original_name) + '</a></span>' +
+              feedback +
+              '  </div>' +
+              '  <div class="vdoc-side">' + badge +
+              (actions ? '<span class="vdoc-actions">' + actions + '</span>' : '') +
+              '  </div>' +
+              '</article>';
           });
-          docsHtml += '</tbody></table></div>';
+          docsHtml += '</div>';
         }
 
         html +=
@@ -212,20 +198,23 @@
         btn.addEventListener("click", function () {
           var docId = btn.getAttribute("data-doc-id");
           if (!docId) return;
-          btn.disabled = true;
-          fetch("/api/admin/verifications/" + docId, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ status: "APPROVED" }),
-            credentials: "same-origin"
-          })
-            .then(function (res) { return res.json(); })
-            .then(function (data) {
-              if (data.ok) loadData();
-              else window.alert(data.detail || "Gagal menyetujui dokumen.");
+          window.DashCommon.confirmMsg("Setujui berkas ini?", "Berkas akan ditandai disetujui dan dihitung ke kelengkapan tim.", "Setujui").then(function (yes) {
+            if (!yes) return;
+            btn.disabled = true;
+            fetch("/api/admin/verifications/" + docId, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ status: "APPROVED" }),
+              credentials: "same-origin"
             })
-            .catch(function () { window.alert("Gagal menghubungi server."); })
-            .finally(function () { btn.disabled = false; });
+              .then(function (res) { return res.json(); })
+              .then(function (data) {
+                if (data.ok) { window.DashCommon.toast("success", "Berkas disetujui."); loadData(); }
+                else window.DashCommon.alertMsg("error", "Gagal", data.detail || "Gagal menyetujui dokumen.");
+              })
+              .catch(function () { window.DashCommon.alertMsg("error", "Koneksi gagal", "Tidak dapat menghubungi server."); })
+              .finally(function () { btn.disabled = false; });
+          });
         }, { signal: signal });
       });
 
@@ -233,27 +222,40 @@
         btn.addEventListener("click", function () {
           var docId = btn.getAttribute("data-doc-id");
           if (!docId) return;
-          var reason = window.prompt("Masukkan alasan / catatan feedback mengapa berkas ini ditolak (peserta akan melihat catatan ini untuk perbaikan):");
-          if (!reason || !reason.trim()) return;
-
-          btn.disabled = true;
-          fetch("/api/admin/verifications/" + docId, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ status: "REJECTED", feedback: reason.trim() }),
-            credentials: "same-origin"
-          })
-            .then(function (res) { return res.json(); })
-            .then(function (data) {
-              if (data.ok) loadData();
-              else window.alert(data.detail || "Gagal menolak dokumen.");
+          Swal.fire({
+            title: "Tolak berkas",
+            input: "textarea",
+            inputLabel: "Alasan penolakan (terlihat oleh peserta)",
+            inputPlaceholder: "Contoh: Foto KTM buram, unggah ulang dengan resolusi lebih tinggi.",
+            inputValidator: function (v) { if (!v || !v.trim()) return "Alasan penolakan wajib diisi."; },
+            showCancelButton: true,
+            confirmButtonText: "Tolak berkas",
+            cancelButtonText: "Batal",
+            confirmButtonColor: "#e74c3c",
+            cancelButtonColor: "#4a4458",
+            background: "var(--dash-surface, #14161f)",
+            color: "var(--dash-text-body, #ffe8d9)",
+            reverseButtons: true
+          }).then(function (r) {
+            if (!r.isConfirmed) return;
+            btn.disabled = true;
+            fetch("/api/admin/verifications/" + docId, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ status: "REJECTED", feedback: r.value.trim() }),
+              credentials: "same-origin"
             })
-            .catch(function () { window.alert("Gagal menghubungi server."); })
-            .finally(function () { btn.disabled = false; });
+              .then(function (res) { return res.json(); })
+              .then(function (data) {
+                if (data.ok) { window.DashCommon.toast("success", "Berkas ditolak, catatan terkirim ke peserta."); loadData(); }
+                else window.DashCommon.alertMsg("error", "Gagal", data.detail || "Gagal menolak dokumen.");
+              })
+              .catch(function () { window.DashCommon.alertMsg("error", "Koneksi gagal", "Tidak dapat menghubungi server."); })
+              .finally(function () { btn.disabled = false; });
+          });
         }, { signal: signal });
       });
     }
-
     loadData();
   }
 
