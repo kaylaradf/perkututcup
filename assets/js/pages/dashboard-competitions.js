@@ -3,6 +3,7 @@
   if (!window.Router) return;
 
   var state = { ac: null };
+  var esc = window.DashCommon.escapeHtml;
 
   function pageCss() {
     return `    .admin-table-wrap {
@@ -531,21 +532,21 @@
 
             tr.innerHTML = `
               <td>
-                <strong style="color:var(--dash-text-primary);">${c.name}</strong><br/>
-                <code style="font-size:0.68rem; color:var(--dash-text-muted); font-family:var(--font-mono);">${c.slug}</code>
+                <strong style="color:var(--dash-text-primary);">${esc(c.name)}</strong><br/>
+                <code style="font-size:0.68rem; color:var(--dash-text-muted); font-family:var(--font-mono);">${esc(c.slug)}</code>
               </td>
-              <td><span style="font-size:0.75rem;">${c.audience}</span></td>
+              <td><span style="font-size:0.75rem;">${esc(c.audience)}</span></td>
               <td><span class="comp-badge comp-badge--type">${typeLabel}</span></td>
               <td><span style="font-family:var(--font-mono); font-size:0.75rem;">${quotaLabel}</span></td>
-              <td><span class="comp-badge ${statusClass}">${c.status}</span></td>
+              <td><span class="comp-badge ${statusClass}">${esc(c.status)}</span></td>
               <td><span style="font-family:var(--font-mono); font-size:0.72rem; color:var(--dash-text-muted);">${c.teams_count || 0} Tim · ${c.participants_count || 0} Peserta</span></td>
               <td>
                 <div style="display:flex;gap:.45rem;flex-wrap:wrap;">
-                  <button class="btn-edit-comp" type="button" data-edit-slug="${c.slug}">
+                  <button class="btn-edit-comp" type="button" data-edit-slug="${esc(c.slug)}">
                     <img src="/assets/svg/dashboard/icon-pencil.svg" width="12" height="12" alt="" />
                     Edit
                   </button>
-                  <button class="btn-delete-comp" type="button" data-delete-slug="${c.slug}" data-delete-name="${c.name}">Hapus</button>
+                  <button class="btn-delete-comp" type="button" data-delete-slug="${esc(c.slug)}" data-delete-name="${esc(c.name)}">Hapus</button>
                 </div>
               </td>
             `;
@@ -578,7 +579,7 @@
           });
         } catch (err) {
           if (err && err.name === "AbortError") return;
-          tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:2rem; color:#e74c3c;">Gagal memuat data kompetisi: ${err.message}</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:2rem; color:#e74c3c;">Gagal memuat data kompetisi: ${esc(err.message)}</td></tr>`;
         }
       };
 

@@ -307,14 +307,14 @@
               if (desc) desc.innerHTML = '<span style="color:var(--dash-text-muted);">Belum diunggah</span>';
               if (btn) { btn.textContent = 'UPLOAD'; btn.disabled = (dtype === 'payment_proof' && data.caller_role !== 'leader'); }
             } else if (doc.status === 'APPROVED') {
-              if (desc) desc.innerHTML = '<span style="color:#2ecc71; font-weight:700;">✓ Disetujui Admin</span> • <a href="' + doc.download_url + '" target="_blank" style="color:var(--soft-violet); font-size:0.75rem;">(Lihat)</a>';
+              if (desc) desc.innerHTML = '<span style="color:#2ecc71; font-weight:700;">✓ Disetujui Admin</span> • <a href="' + doc.download_url + '" target="_blank" rel="noopener" style="color:var(--soft-violet); font-size:0.75rem;">(Lihat)</a>';
               if (btn) { btn.textContent = 'Ganti File'; btn.disabled = false; }
             } else if (doc.status === 'REJECTED') {
               var fb = doc.feedback ? ': ' + escapeHtml(doc.feedback) : '';
               if (desc) desc.innerHTML = '<span style="color:#ff6b6b; font-weight:700;">✗ Ditolak' + fb + '</span>';
               if (btn) { btn.textContent = 'UNGGAH ULANG'; btn.disabled = false; }
             } else {
-              if (desc) desc.innerHTML = '<span style="color:#f1c40f; font-weight:700;">⏳ Menunggu Verifikasi Admin</span> • <a href="' + doc.download_url + '" target="_blank" style="color:var(--soft-violet); font-size:0.75rem;">(Lihat)</a>';
+              if (desc) desc.innerHTML = '<span style="color:#f1c40f; font-weight:700;">⏳ Menunggu Verifikasi Admin</span> • <a href="' + doc.download_url + '" target="_blank" rel="noopener" style="color:var(--soft-violet); font-size:0.75rem;">(Lihat)</a>';
               if (btn) { btn.textContent = 'Ganti File'; btn.disabled = false; }
             }
           });
