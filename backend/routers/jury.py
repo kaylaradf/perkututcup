@@ -109,6 +109,12 @@ def evaluate_submission(team_id: int, payload: JuryEvaluateIn, request: Request)
             if not is_admin and sub.get("jury_user_id") != user["id"]:
                 raise HTTPException(status_code=403, detail="Akses ditolak: Anda bukan juri yang ditugaskan untuk karya ini.")
 
+            # Superadmin tidak punya baris users (id None): nilai dicatat atas
+            # nama juri yang ditugaskan untuk karya ini.
+            evaluator_id = user["id"] if user.get("id") is not None else sub.get("jury_user_id")
+            if evaluator_id is None:
+                raise HTTPException(status_code=409, detail="Belum ada juri yang ditugaskan untuk karya ini; tugaskan juri terlebih dahulu.")
+
             eval_row = conn.execute(
                 """
                 INSERT INTO submission_evaluations (team_id, jury_user_id, score, feedback, evaluated_at)
@@ -120,7 +126,7 @@ def evaluate_submission(team_id: int, payload: JuryEvaluateIn, request: Request)
                     evaluated_at = now()
                 RETURNING id, team_id, jury_user_id, score, feedback, evaluated_at
                 """,
-                (team_id, user["id"], payload.score, payload.feedback.strip() if payload.feedback else None),
+                (team_id, evaluator_id, payload.score, payload.feedback.strip() if payload.feedback else None),
             ).fetchone()
 
     audit(request, "jury", "evaluate_submission", target_type="team", target_id=team_id, detail={"score": payload.score, "feedback": payload.feedback.strip() if payload.feedback else None})
