@@ -10,7 +10,8 @@ Halaman publik (landing, about, timeline, sign-in, join) + SPA dashboard
 - **Dashboard:** SPA shell `app/index.html` + router vanilla (`assets/js/router.js`),
   modul per halaman di `assets/js/pages/`. Library: SweetAlert2 (dialog/toast) dan
   Lucide (ikon), di-vendor lokal di `assets/js/vendor/`. zxcvbn untuk meter password.
-- **Backend:** FastAPI + PostgreSQL (`backend/app.py`), session cookie HttpOnly,
+- **Backend:** FastAPI + PostgreSQL, modular per fitur (`backend/app.py` entrypoint,
+  `backend/core.py` helper bersama, `backend/routers/` per fitur), session cookie HttpOnly,
   CAPTCHA perkalian (HMAC), rate limiting, account lockout. Migrasi bernomor di
   `backend/migrations/` dijalankan otomatis saat startup.
 - **Health check:** `GET /health` → `{"status":"ok"}`.
@@ -72,8 +73,18 @@ perkututcup/
 │       └── zxcvbn.js           # Meter kekuatan password
 │
 ├── backend/
-│   ├── app.py                  # FastAPI: auth, profil/tim, dokumen, verifikasi,
-│   │                           #   kompetisi (+soal), submisi, penilaian juri, admin user
+│   ├── app.py                  # Entrypoint: FastAPI app, rate-limit handler, migrasi startup, wiring router
+│   ├── core.py                 # Config/env, db(), limiter, password/captcha/session, helper bersama
+│   ├── routers/
+│   │   ├── auth.py             # Register/login/logout/session + CAPTCHA
+│   │   ├── profile.py          # /api/me
+│   │   ├── competitions.py     # Katalog, pendaftaran, admin CRUD kompetisi (+soal)
+│   │   ├── teams.py            # Tim: join/member/leave/rename
+│   │   ├── documents.py        # Upload dokumen peserta + verifikasi admin
+│   │   ├── submissions.py      # Submisi karya peserta
+│   │   ├── jury.py             # Penilaian juri + penugasan admin
+│   │   ├── admin_users.py      # Manajemen pengguna admin
+│   │   └── web.py              # SPA shell, guard role, static catch-all (include TERAKHIR)
 │   ├── migrations/             # 0001..0005, auto-run saat startup (tabel schema_migrations)
 │   └── requirements.txt
 │
@@ -84,7 +95,7 @@ perkututcup/
 ## 3. Role & halaman dashboard
 
 Sidebar dirender per role oleh `dashboard-common.js`; guard ganda:
-server (redirect/404 di `app.py`) + client (`router.js`).
+server (redirect/404 di `routers/web.py`) + client (`router.js`).
 
 | Role | Tab | Landing setelah login |
 | --- | --- | --- |
