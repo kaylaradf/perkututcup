@@ -5,11 +5,12 @@ tersendiri, live audit log (SSE), stats, export CSV. Semua endpoint di sini
 require_superadmin kecuali auth. Aksi superadmin diaudit fail-closed.
 """
 import csv
+import hashlib
 import hmac
 import io
 import json
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
@@ -17,6 +18,7 @@ from pydantic import BaseModel, Field
 
 from core import (
     SUPERADMIN_USERNAME,
+    CAPTCHA_HMAC_KEY,
     SUPERADMIN_PASSWORD,
     SUPERADMIN_TOTP_SECRET,
     SUPER_COOKIE,
@@ -38,14 +40,43 @@ router = APIRouter(prefix="/api/superkutut")
 class SuperLoginIn(BaseModel):
     username: str = Field(min_length=1, max_length=100)
     password: str = Field(min_length=1, max_length=200)
-    totp: str = Field(min_length=6, max_length=8)
     captcha_id: str = Field(min_length=1)
     captcha_answer: str = Field(min_length=1)
 
 
+class SuperMfaIn(BaseModel):
+    mfa_ticket: str = Field(min_length=1, max_length=200)
+    totp: str = Field(min_length=6, max_length=8)
+
+
+def _mfa_ticket_sig(payload: str) -> str:
+    return hmac.new(CAPTCHA_HMAC_KEY.encode(), payload.encode(), hashlib.sha256).hexdigest()[:32]
+
+
+def _issue_mfa_ticket(username: str) -> str:
+    """Ticket stateless HMAC, berlaku 5 menit, hanya untuk langkah MFA."""
+    expires = int((datetime.now(timezone.utc) + timedelta(minutes=5)).timestamp())
+    payload = f"mfa.{username}.{expires}"
+    return f"{payload}.{_mfa_ticket_sig(payload)}"
+
+
+def _verify_mfa_ticket(ticket: str, username: str) -> bool:
+    try:
+        kind, user, expires, sig = ticket.split(".")
+        payload = f"{kind}.{user}.{expires}"
+        if kind != "mfa" or user != username:
+            return False
+        if not hmac.compare_digest(sig, _mfa_ticket_sig(payload)):
+            return False
+        return int(expires) >= datetime.now(timezone.utc).timestamp()
+    except (ValueError, AttributeError):
+        return False
+
+
 @router.post("/auth/login")
 @limiter.limit("5/minute")
-def super_login(request: Request, payload: SuperLoginIn, response: Response):
+def super_login(request: Request, payload: SuperLoginIn):
+    """Langkah 1: username + password + captcha. Sukses -> ticket MFA (belum login)."""
     actor = {"id": None, "email": payload.username, "role": "superadmin"}
     require_captcha(payload)
     ok_user = hmac.compare_digest(payload.username, SUPERADMIN_USERNAME)
@@ -56,8 +87,20 @@ def super_login(request: Request, payload: SuperLoginIn, response: Response):
     if not SUPERADMIN_TOTP_SECRET:
         audit(request, "superkutut", "login_failed", detail={"reason": "totp_not_configured"}, outcome="error", actor=actor, fail_closed=True)
         raise HTTPException(status_code=503, detail="TOTP belum dikonfigurasi di server.")
+    audit(request, "superkutut", "credentials_ok", detail={"username": payload.username}, actor=actor, fail_closed=True)
+    return {"mfa_required": True, "mfa_ticket": _issue_mfa_ticket(payload.username)}
+
+
+@router.post("/auth/mfa")
+@limiter.limit("5/minute")
+def super_mfa(request: Request, payload: SuperMfaIn, response: Response):
+    """Langkah 2: TOTP dengan ticket dari langkah 1. Sukses -> session super."""
+    actor = {"id": None, "email": SUPERADMIN_USERNAME, "role": "superadmin"}
+    if not _verify_mfa_ticket(payload.mfa_ticket, SUPERADMIN_USERNAME):
+        audit(request, "superkutut", "login_failed", detail={"reason": "mfa_ticket"}, outcome="denied", actor=actor, fail_closed=True)
+        raise HTTPException(status_code=401, detail="Sesi MFA kedaluwarsa. Ulangi login.")
     if not verify_super_totp(payload.totp):
-        audit(request, "superkutut", "login_failed", detail={"username": payload.username, "reason": "totp"}, outcome="denied", actor=actor, fail_closed=True)
+        audit(request, "superkutut", "login_failed", detail={"username": SUPERADMIN_USERNAME, "reason": "totp"}, outcome="denied", actor=actor, fail_closed=True)
         raise HTTPException(status_code=401, detail="Kode TOTP salah atau kedaluwarsa")
     create_super_session(response)
     audit(request, "superkutut", "login_success", actor=actor, fail_closed=True)

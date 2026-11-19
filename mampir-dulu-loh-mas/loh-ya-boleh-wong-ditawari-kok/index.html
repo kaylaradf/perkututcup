@@ -3,118 +3,267 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#0b0c10" />
   <meta name="robots" content="noindex, nofollow" />
-  <title>Masuk</title>
+  <title>Get-TuiCredential</title>
   <link rel="icon" type="image/svg+xml" href="/assets/svg/favicon.svg" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&family=Poppins:wght@400;500;700&family=Space+Mono&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/styles.css" />
-  <link rel="stylesheet" href="/auth-motion.css" />
+  <style>
+    :root {
+      --tui-blue: #012456;
+      --tui-field: #d9d9d9;
+      --tui-text: #f2f2f2;
+      --tui-border: #cccccc;
+      --tui-cyan: #61d6d6;
+      --tui-yellow: #f9f1a5;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      background: #0c0c0c;
+      display: grid;
+      place-items: center;
+      font-family: "Cascadia Mono", "Consolas", "Courier New", monospace;
+      color: var(--tui-text);
+    }
+    .tui-box {
+      position: relative;
+      width: min(560px, 92vw);
+      background: var(--tui-blue);
+      border: 2px solid var(--tui-border);
+      padding: 1.6rem 1.4rem 1.2rem;
+      box-shadow: 4px 4px 0 rgba(0,0,0,0.6);
+    }
+    .tui-title {
+      position: absolute;
+      top: -0.75em;
+      left: 1rem;
+      background: var(--tui-blue);
+      padding: 0 0.5rem;
+      color: var(--tui-cyan);
+      font-size: 0.95rem;
+    }
+    .tui-row {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      margin: 0.9rem 0;
+    }
+    .tui-row label {
+      flex: 0 0 7.5em;
+      text-align: right;
+      font-size: 0.95rem;
+    }
+    .tui-row input {
+      flex: 1;
+      background: var(--tui-field);
+      border: none;
+      border-radius: 0;
+      padding: 0.35rem 0.5rem;
+      font: inherit;
+      color: #000;
+      outline: 2px solid transparent;
+    }
+    .tui-row input:focus { outline-color: var(--tui-cyan); }
+    .tui-question {
+      margin: 0.9rem 0 0.2rem;
+      color: var(--tui-yellow);
+      font-size: 0.9rem;
+      min-height: 1.2em;
+    }
+    .tui-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 1.4rem;
+      margin-top: 1.4rem;
+      flex-wrap: wrap;
+    }
+    .tui-btn {
+      background: none;
+      border: none;
+      padding: 0.2rem 0.3rem;
+      font: inherit;
+      font-size: 0.95rem;
+      color: var(--tui-text);
+      cursor: pointer;
+    }
+    .tui-btn::before { content: "[ "; color: var(--tui-border); }
+    .tui-btn::after { content: " ]"; color: var(--tui-border); }
+    .tui-btn:hover, .tui-btn:focus-visible { color: var(--tui-cyan); outline: none; }
+    .tui-btn:disabled { opacity: 0.5; cursor: default; }
+    .tui-msg {
+      margin: 1rem 0 0;
+      min-height: 1.2em;
+      font-size: 0.85rem;
+      color: #ff7b72;
+      white-space: pre-wrap;
+    }
+    .tui-msg.is-ok { color: #7ee787; }
+    .tui-hint { margin-top: 0.4rem; font-size: 0.75rem; color: #8b949e; }
+    [hidden] { display: none !important; }
+    .tui-caret { display: inline-block; width: 0.55em; height: 1em; background: var(--tui-text); vertical-align: -2px; animation: blink 1s steps(1) infinite; }
+    @keyframes blink { 50% { opacity: 0; } }
+    @media (prefers-reduced-motion: reduce) { .tui-caret { animation: none; } }
+  </style>
 </head>
-<body class="auth-body">
-  <main class="auth-screen">
-    <section class="auth-card" aria-labelledby="auth-title">
-      <h1 class="auth-title" id="auth-title">Masuk</h1>
-      <p class="auth-subtitle">Akses terbatas.</p>
+<body>
+  <main class="tui-box" aria-labelledby="tui-title">
+    <span class="tui-title" id="tui-title">Get-TuiCredential</span>
 
-      <form class="auth-form" id="super-form" novalidate>
-        <label class="auth-field" for="su-user">
-          <span>Username</span>
-          <span class="auth-control">
-            <input id="su-user" name="username" type="text" autocomplete="username" placeholder="Username" maxlength="100" required />
-          </span>
-        </label>
+    <form id="step-creds" novalidate>
+      <div class="tui-row">
+        <label for="su-user">UserName</label>
+        <input id="su-user" name="username" type="text" autocomplete="username" maxlength="100" required autofocus />
+      </div>
+      <div class="tui-row">
+        <label for="su-pass">Password</label>
+        <input id="su-pass" name="password" type="password" autocomplete="current-password" maxlength="200" required />
+      </div>
+      <p class="tui-question" id="su-captcha-question">Memuat soal verifikasi…</p>
+      <div class="tui-row">
+        <label for="su-captcha">Jawaban</label>
+        <input id="su-captcha" name="captchaAnswer" type="text" inputmode="numeric" autocomplete="off" maxlength="4" required />
+      </div>
+      <div class="tui-buttons">
+        <button class="tui-btn" type="submit" id="btn-login">Login</button>
+        <button class="tui-btn" type="button" id="btn-cancel">Cancel</button>
+        <button class="tui-btn" type="button" id="btn-showpwd" aria-pressed="false">ShowPwd</button>
+        <button class="tui-btn" type="button" id="btn-newq">NewQ</button>
+      </div>
+    </form>
 
-        <label class="auth-field" for="su-pass">
-          <span>Kata Sandi</span>
-          <span class="auth-control">
-            <input id="su-pass" name="password" type="password" autocomplete="current-password" placeholder="Kata sandi" maxlength="200" required />
-            <button class="auth-password-toggle" type="button" id="su-toggle" aria-label="Tampilkan kata sandi" aria-pressed="false">
-              <img src="/assets/svg/icon-eye.svg" width="14" height="14" alt="" />
-            </button>
-          </span>
-        </label>
+    <form id="step-mfa" hidden novalidate>
+      <p class="tui-question">MFA required — masukkan kode TOTP 6 digit dari authenticator.</p>
+      <div class="tui-row">
+        <label for="su-totp">TOTP</label>
+        <input id="su-totp" name="totp" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required />
+      </div>
+      <div class="tui-buttons">
+        <button class="tui-btn" type="submit" id="btn-verify">Verify</button>
+        <button class="tui-btn" type="button" id="btn-back">Back</button>
+      </div>
+      <p class="tui-hint">Ticket berlaku 5 menit.</p>
+    </form>
 
-        <label class="auth-field" for="su-totp">
-          <span>Kode TOTP (6 digit)</span>
-          <span class="auth-control">
-            <input id="su-totp" name="totp" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="123456" maxlength="6" pattern="[0-9]{6}" required />
-          </span>
-        </label>
-
-        <div class="auth-field auth-field--captcha">
-          <span class="captcha-question" id="su-captcha-question">Memuat soal verifikasi…</span>
-          <span class="auth-control">
-            <input id="su-captcha" name="captchaAnswer" type="text" inputmode="numeric" autocomplete="off" placeholder="Jawaban" aria-label="Jawaban verifikasi" maxlength="4" required />
-            <button class="auth-captcha-refresh" type="button" id="su-captcha-refresh" aria-label="Ganti soal">
-              <img src="/assets/svg/icon-refresh.svg" width="14" height="14" alt="" />
-            </button>
-          </span>
-        </div>
-
-        <button class="auth-submit" type="submit" id="su-submit">Masuk</button>
-        <p class="auth-message" id="su-message" role="alert" aria-live="polite"></p>
-      </form>
-    </section>
+    <p class="tui-msg" id="su-message" role="alert" aria-live="polite"></p>
   </main>
+
   <script>
   (function () {
     "use strict";
-    var form = document.getElementById("super-form");
+    var credsForm = document.getElementById("step-creds");
+    var mfaForm = document.getElementById("step-mfa");
     var msg = document.getElementById("su-message");
     var qEl = document.getElementById("su-captcha-question");
     var captchaId = null;
+    var mfaTicket = null;
+
+    function setMsg(text, ok) {
+      msg.textContent = text || "";
+      msg.classList.toggle("is-ok", !!ok);
+    }
 
     function loadCaptcha() {
       qEl.textContent = "Memuat soal verifikasi…";
       fetch("/api/auth/captcha").then(function (r) { return r.json(); }).then(function (d) {
         captchaId = d.id;
         qEl.textContent = d.question;
-      }).catch(function () { qEl.textContent = "Gagal memuat soal — klik ↻ untuk coba lagi."; });
+      }).catch(function () { qEl.textContent = "Gagal memuat soal — tekan NewQ."; });
     }
     loadCaptcha();
-    document.getElementById("su-captcha-refresh").addEventListener("click", loadCaptcha);
+    document.getElementById("btn-newq").addEventListener("click", loadCaptcha);
 
-    document.getElementById("su-toggle").addEventListener("click", function () {
+    document.getElementById("btn-showpwd").addEventListener("click", function () {
       var p = document.getElementById("su-pass");
       var show = p.type === "password";
       p.type = show ? "text" : "password";
       this.setAttribute("aria-pressed", String(show));
     });
 
-    form.addEventListener("submit", function (e) {
-      e.preventDefault();
-      msg.textContent = "";
-      if (!form.reportValidity()) return;
-      if (!captchaId) { msg.textContent = "Soal verifikasi belum termuat."; return; }
-      var btn = document.getElementById("su-submit");
-      btn.disabled = true;
-      fetch("/api/superkutut/auth/login", {
+    document.getElementById("btn-cancel").addEventListener("click", function () {
+      credsForm.reset();
+      setMsg("");
+      loadCaptcha();
+      document.getElementById("su-user").focus();
+    });
+
+    function post(url, body) {
+      return fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({
-          username: form.username.value.trim(),
-          password: form.password.value,
-          totp: form.totp.value.trim(),
-          captcha_id: captchaId,
-          captcha_answer: form.captchaAnswer.value.trim()
-        })
-      }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, data: d }; }); })
-        .then(function (res) {
-          if (res.ok) {
-            window.location.href = "/mampir-dulu-loh-mas/cok-gateli/";
-            return;
-          }
-          var d = res.data.detail;
-          msg.textContent = typeof d === "string" ? d : (d && (d.captcha || d.lockout)) || "Gagal masuk.";
-          loadCaptcha();
-          form.captchaAnswer.value = "";
-          btn.disabled = false;
-        })
-        .catch(function () { msg.textContent = "Tidak dapat menghubungi server."; btn.disabled = false; });
+        body: JSON.stringify(body)
+      }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, data: d }; }); });
+    }
+
+    function errText(d) {
+      var det = d && d.detail;
+      if (typeof det === "string") return det;
+      if (det && typeof det === "object") return det.captcha || det.lockout || JSON.stringify(det);
+      return "Gagal.";
+    }
+
+    credsForm.addEventListener("submit", function (e) {
+      e.preventDefault();
+      setMsg("");
+      if (!credsForm.reportValidity()) return;
+      if (!captchaId) { setMsg("Soal verifikasi belum termuat."); return; }
+      var btn = document.getElementById("btn-login");
+      btn.disabled = true;
+      post("/api/superkutut/auth/login", {
+        username: credsForm.username.value.trim(),
+        password: credsForm.password.value,
+        captcha_id: captchaId,
+        captcha_answer: credsForm.captchaAnswer.value.trim()
+      }).then(function (res) {
+        btn.disabled = false;
+        if (res.ok && res.data.mfa_required) {
+          mfaTicket = res.data.mfa_ticket;
+          credsForm.hidden = true;
+          mfaForm.hidden = false;
+          setMsg("Kredensial benar. Lanjut verifikasi MFA.", true);
+          document.getElementById("su-totp").focus();
+          return;
+        }
+        setMsg(errText(res.data));
+        loadCaptcha();
+        credsForm.captchaAnswer.value = "";
+      }).catch(function () { btn.disabled = false; setMsg("Tidak dapat menghubungi server."); });
+    });
+
+    document.getElementById("btn-back").addEventListener("click", function () {
+      mfaTicket = null;
+      mfaForm.hidden = true;
+      credsForm.hidden = false;
+      setMsg("");
+      loadCaptcha();
+      credsForm.captchaAnswer.value = "";
+      document.getElementById("su-user").focus();
+    });
+
+    mfaForm.addEventListener("submit", function (e) {
+      e.preventDefault();
+      setMsg("");
+      if (!mfaForm.reportValidity()) return;
+      if (!mfaTicket) { setMsg("Ticket MFA hilang — ulangi login."); return; }
+      var btn = document.getElementById("btn-verify");
+      btn.disabled = true;
+      post("/api/superkutut/auth/mfa", {
+        mfa_ticket: mfaTicket,
+        totp: document.getElementById("su-totp").value.trim()
+      }).then(function (res) {
+        btn.disabled = false;
+        if (res.ok) {
+          setMsg("Access granted. Mengalihkan…", true);
+          window.location.href = "/mampir-dulu-loh-mas/cok-gateli/";
+          return;
+        }
+        setMsg(errText(res.data));
+        document.getElementById("su-totp").value = "";
+        document.getElementById("su-totp").focus();
+        if (res.data.detail && String(res.data.detail).indexOf("Ulangi login") !== -1) {
+          document.getElementById("btn-back").click();
+        }
+      }).catch(function () { btn.disabled = false; setMsg("Tidak dapat menghubungi server."); });
     });
   })();
   </script>

@@ -117,7 +117,7 @@ Satu login dengan SEMUA privilege role, plus live audit log seluruh aktivitas.
 - Kredensial **murni env** (tidak di DB, tidak bisa dibuat via Kelola Pengguna):
   `PERKUTUT_SUPERADMIN_USER`, `PERKUTUT_SUPERADMIN_PASSWORD`,
   `PERKUTUT_SUPERADMIN_TOTP_SECRET` (base32 A-Z2-7, kelipatan 8, min 16 char;
-  contoh mudah diingat 32 char: `GILAKAMUKAMUYANGGILAKAMUKAMUYANG` — masukkan
+  contoh mudah diingat: `GILAKAMUKAMUYANGGILAAKUSALAHAPA` (padding base32 ditambah otomatis) — masukkan
   manual/QR di https://totp.danhersam.com/#/ lalu scan ke authenticator).
   TOTP kosong = login super ditolak (fail-closed). Ganti semua nilai via `.env`.
 - Session cookie terpisah `perkutut_super_session` (HttpOnly, SameSite=Strict,

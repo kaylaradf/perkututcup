@@ -31,7 +31,8 @@ MAX_SUB_SIZE = 50 * 1024 * 1024  # 50 MB
 # Kredensial superadmin TIDAK disimpan di DB users — murni env, diganti via .env.
 SUPERADMIN_USERNAME = os.environ.get("PERKUTUT_SUPERADMIN_USER", "superkutut")
 SUPERADMIN_PASSWORD = os.environ.get("PERKUTUT_SUPERADMIN_PASSWORD", "admin")
-SUPERADMIN_TOTP_SECRET = os.environ.get("PERKUTUT_SUPERADMIN_TOTP_SECRET", "").strip().upper().replace(" ", "")
+_raw_totp = os.environ.get("PERKUTUT_SUPERADMIN_TOTP_SECRET", "").strip().upper().replace(" ", "")
+SUPERADMIN_TOTP_SECRET = _raw_totp + "=" * ((8 - len(_raw_totp) % 8) % 8) if _raw_totp else ""
 SUPER_SESSION_TTL_HOURS = 8
 SUPER_COOKIE = "perkutut_super_session"
 SUPER_BASE_PATH = "/mampir-dulu-loh-mas"
