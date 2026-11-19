@@ -254,8 +254,8 @@ def get_document_file(document_id: int, request: Request):
     if not doc:
         raise HTTPException(status_code=404, detail="Dokumen tidak ditemukan.")
 
-    is_admin = user.get("role") == "admin"
-    is_jury = user.get("role") == "jury"
+    is_admin = user.get("role") in ("admin", "superadmin")
+    is_jury = user.get("role") in ("jury", "superadmin")
     is_owner_or_teammate = bool(doc.get("is_teammate"))
 
     if not (is_admin or is_jury or is_owner_or_teammate):

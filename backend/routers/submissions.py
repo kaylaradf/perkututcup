@@ -246,8 +246,8 @@ def get_submission_file(submission_id: int, request: Request):
     if not sub:
         raise HTTPException(status_code=404, detail="File karya tidak ditemukan.")
 
-    is_admin = user.get("role") == "admin"
-    is_assigned_jury = user.get("role") == "jury" and (sub.get("jury_user_id") == user["id"])
+    is_admin = user.get("role") in ("admin", "superadmin")
+    is_assigned_jury = (user.get("role") == "jury" and sub.get("jury_user_id") == user["id"]) or user.get("role") == "superadmin"
     is_teammate = bool(sub.get("is_teammate"))
 
     if not (is_admin or is_assigned_jury or is_teammate):

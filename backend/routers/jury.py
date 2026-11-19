@@ -19,7 +19,7 @@ class JuryEvaluateIn(BaseModel):
 def list_jury_submissions(request: Request):
     """Lists submissions assigned to this jury (or all for admin)."""
     user = require_jury(request)
-    is_admin = user.get("role") == "admin"
+    is_admin = user.get("role") in ("admin", "superadmin")
 
     with db() as conn:
         if is_admin:
@@ -90,7 +90,7 @@ def list_jury_submissions(request: Request):
 def evaluate_submission(team_id: int, payload: JuryEvaluateIn, request: Request):
     """Jury inputs score (0-100) and feedback for an assigned team's submission."""
     user = require_jury(request)
-    is_admin = user.get("role") == "admin"
+    is_admin = user.get("role") in ("admin", "superadmin")
 
     with db() as conn:
         with conn.transaction():
