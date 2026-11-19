@@ -110,7 +110,7 @@ Tidak ada role `committee` (dihapus di migrasi 0005).
 Satu login dengan SEMUA privilege role, plus live audit log seluruh aktivitas.
 
 - Login: `/mampir-dulu-loh-mas/loh-ya-boleh-wong-ditawari-kok/`
-  (username + kata sandi + captcha perkalian + **TOTP 6 digit**).
+  (username + kata sandi, rate limit 1x/menit/IP, lalu \*\*TOTP 6 digit\*\* via ticket MFA).
 - Dashboard: `/mampir-dulu-loh-mas/cok-gateli/` — live log SSE (filter kategori/
   outcome/pencarian, jeda, export CSV), stats 24 jam, dan akses penuh ke semua
   halaman dashboard lain dari sidebar yang sama.
