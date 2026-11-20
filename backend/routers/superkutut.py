@@ -149,9 +149,10 @@ def _log_filters(request: Request):
     if q.get("after_id"):
         where.append("id > %s")
         params.append(int(q["after_id"]))
-    if q.get("include_reads") != "1" and not q.get("category") and not q.get("action"):
-        # GET sukses = noise pembacaan rutin; sembunyikan default (console & export)
-        where.append("NOT (category = 'api' AND method = 'GET' AND outcome = 'ok')")
+    if q.get("include_http") != "1" and not q.get("category") and not q.get("action"):
+        # Baris HTTP mentah middleware: duplikat event handler + noise lama.
+        # Sembunyikan default; toggle HTTP rows / include_http=1 menampilkan.
+        where.append("category != 'api'")
     if q.get("from"):
         where.append("ts >= %s")
         params.append(q["from"])

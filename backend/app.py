@@ -65,10 +65,13 @@ def rate_limit_handler(request: Request, exc: RateLimitExceeded):
     )
 
 
-# ------------------------------------------------------- audit: semua request API
-# Middleware mencatat SETIAP request /api/* (penggunaan seluruh fitur) tanpa
-# perlu menyentuh tiap router. Detail bernilai (before/after, file, skor, dsb.)
-# dicatat terpisah oleh handler via core.audit().
+# ------------------------------------------------------- audit: kegagalan request API
+# Middleware hanya mencatat request /api/* yang GAGAL (status >= 400): akses
+# ditolak, lockout, rate limit, probing 404, error 5xx — sinyal keamanan yang
+# sering terjadi sebelum handler sempat meng-audit. Mutasi sukses TIDAK dicatat
+# di sini: handler sudah meng-audit dengan konteks bisnis via core.audit(),
+# baris HTTP mentah hanya duplikat yang menenggelamkan event bernilai.
+# Invariant: setiap endpoint mutasi baru WAJIB memanggil core.audit().
 import time as _time
 from core import current_user, audit as _audit, SUPERADMIN_USERNAME
 
@@ -86,11 +89,7 @@ async def audit_api_requests(request: Request, call_next):
     response = await call_next(request)
     dur = int((_time.monotonic() - start) * 1000)
     actor = request.state.user
-    # Noise reduction: GET sukses = pembacaan biasa, tidak dicatat per-request.
-    # Yang tetap tercatat: semua mutasi (POST/PATCH/PUT/DELETE), semua kegagalan
-    # (4xx/5xx termasuk GET ditolak), dan event bernilai dari handler (auth dsb.).
-    skip = request.method == "GET" and response.status_code < 400
-    if not skip:
+    if response.status_code >= 400:
         try:
             ip = request.headers.get("cf-connecting-ip") or request.headers.get("x-forwarded-for", "").split(",")[0].strip() or (request.client.host if request.client else None)
             from core import db as _db
@@ -108,7 +107,7 @@ async def audit_api_requests(request: Request, call_next):
                         request.headers.get("user-agent", "")[:300],
                         request.method + " " + path,
                         json.dumps({"query": str(request.url.query)[:500]} if request.url.query else {}, ensure_ascii=False),
-                        "ok" if response.status_code < 400 else ("denied" if response.status_code in (401, 403, 423) else "error"),
+                        "denied" if response.status_code in (401, 403, 423, 429) else "error",
                         request.method,
                         path,
                         response.status_code,
