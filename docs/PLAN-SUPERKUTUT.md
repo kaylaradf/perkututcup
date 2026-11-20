@@ -149,45 +149,54 @@ mutasi (panggilan audit), `routers/web.py` (guard+shell), `dashboard-common.js`
 
 ### B1. Backup
 
-- **Format**: `pg_dump -Fc` (custom, terkompresi, selektif restore) +
-  manifest JSON (waktu, ukuran, sha256, schema_migrations terbaru, jumlah baris
-  per tabel). Opsional ikutkan `uploads/` sebagai tar terpisah (file fisik tidak
-  ada di DB) — toggle per backup.
+- **Format**: `pg_dump --format=plain --clean --if-exists --no-owner
+  --no-privileges` → **file `.sql`** (portabel: bisa dibaca/diedit, restore
+  lewat `psql` di server mana pun). Dikompresi gzip saat download (`.sql.gz`)
+  bila perlu hemat; di disk tetap `.sql` polos agar gampang diinspeksi.
+  Manifest JSON (waktu, ukuran, sha256, schema_migrations terbaru, jumlah
+  baris per tabel). Toggle ikutkan `uploads/` sebagai **tar.gz terpisah**
+  (file fisik tidak ada di DB, hanya path-nya).
 - **Lokasi**: `/root/perkutut-backups/` (di LUAR deploy dir supaya rsync CI
   tidak menyentuhnya), retensi N hari (default 14, env).
 - **Jadwal**: systemd timer `perkutut-backup.timer` harian 02:00 + trigger
   manual dari dashboard. Timer lebih andal daripada cron di dalam app.
-- **Integritas**: sha256 disimpan di manifest; `pg_restore --list` diverifikasi
-  setelah dump; ukuran 0 = gagal.
+- **Integritas**: sha256 di manifest; verifikasi pasca-dump: ukuran > 0 dan
+  baris penutup `-- PostgreSQL database dump complete` ada; gagal = status
+  error, file ditandai.
 - Tabel `backups` (migrasi 0007): id, created_at, created_by (NULL=timer),
-  filename, size_bytes, sha256, includes_uploads, status, note.
+  filename, size_bytes, sha256, includes_uploads, uploads_filename, status,
+  note, source (`local`/`upload`).
 
 ### B2. Restore (operasi berbahaya — pagar berlapis)
 
-- Hanya superadmin. Alur wajib:
+- Hanya superadmin. Sumber: backup terdaftar ATAU **upload file `.sql`
+  eksternal** (max 100MB; divalidasi: header `-- PostgreSQL database dump`,
+  marker penutup, sha256 dicatat, disimpan sebagai backup `source=upload`
+  sebelum bisa di-restore — tidak pernah langsung dieksekusi dari stream).
+- Alur wajib:
   1. Pilih backup → tampilkan manifest + warning.
   2. **Auto-backup pre-restore** (snapshot kondisi sekarang dulu, selalu).
   3. Konfirmasi ketik-ulang frasa (mis. nama DB) via Swal input — bukan sekadar
      klik OK.
   4. App masuk mode maintenance (flag file; middleware balas 503 untuk semua
      non-superadmin), putus koneksi DB lain (`pg_terminate_backend`),
-     `pg_restore --clean --if-exists --single-transaction` (atomik: gagal =
-     rollback penuh, tidak setengah jadi).
+     `psql --single-transaction --set ON_ERROR_STOP=1 -f backup.sql`
+     (dump sudah berisi DROP/CREATE berkat `--clean --if-exists`; atomik:
+     gagal = rollback penuh, tidak setengah jadi).
   5. Lepas maintenance, health-check, catat audit `backup.restore` fail-closed
-     dengan sha256 backup sumber + pre-restore snapshot.
-- Restore `uploads/` opsional terpisah (extract tar ke uploads/, juga dengan
-  snapshot lama dipindah ke `.pre-restore-<ts>`).
-- Download backup via API superadmin (stream FileResponse); upload backup
-  eksternal TIDAK didukung dulu (YAGNI, permukaan serangan besar).
+     dengan sha256 sumber + pre-restore snapshot.
+- Restore `uploads/` opsional terpisah (extract tar.gz ke uploads/, folder
+  lama dipindah ke `.pre-restore-<ts>` dulu — tidak pernah hapus langsung).
 
 ### B3. API & UI
 
-- `GET /api/superkutut/backups`, `POST .../backups` (buat sekarang),
-  `POST .../backups/{id}/restore`, `GET .../backups/{id}/download`,
-  `DELETE .../backups/{id}` — semua audit fail-closed.
+- `GET /api/superkutut/backups`, `POST .../backups` (buat sekarang, toggle
+  uploads), `POST .../backups/upload` (terima `.sql`), `POST .../backups/{id}/restore`,
+  `GET .../backups/{id}/download` (stream `.sql`), `DELETE .../backups/{id}` —
+  semua audit fail-closed.
 - Tab **Backup** di dashboard superkutut: daftar backup (waktu, ukuran, sha256
-  pendek, includes_uploads), tombol Backup Sekarang, Restore (alur konfirmasi),
-  Unduh, Hapus; status timer berikutnya.
+  pendek, includes_uploads, source), tombol Backup Sekarang, Upload .sql,
+  Restore (alur konfirmasi), Unduh, Hapus; status timer berikutnya.
 - Restore panjang → jalankan sebagai background task dengan progress via SSE
   channel yang sama dengan live log.
 
