@@ -100,6 +100,12 @@ Semua `require_superadmin`:
   [EVENT] [STATUS] key=value …`, satu baris per event, tanpa emoticon;
   nilai user-supplied di-strip CR/LF/TAB — CWE-117). Console UI memakai
   format yang sama, bracket diwarnai per level/status.
+- **Noise GET reads**: baris `api` GET sukses (pembacaan rutin) disembunyikan
+  default di console & `/logs` & `/logs/export` — dengan 1000 user aktif,
+  polling dashboard akan menenggelamkan event bernilai. Toggle "GET reads"
+  di console (atau `?include_reads=1` / filter category=api) menampilkannya
+  kembali. Middleware sudah tidak mencatat GET sukses sejak `4a033ab`;
+  filter ini membereskan baris lama yang terlanjur tercatat.
 - Impersonation TIDAK dibuat (superadmin cukup punya semua privilege langsung;
   impersonasi menambah risiko & kompleksitas audit — YAGNI).
 

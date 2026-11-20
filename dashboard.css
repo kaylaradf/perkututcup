@@ -1806,6 +1806,20 @@ input[type="date"].input {
 
 .su-csearch { flex: 1; min-width: 140px; max-width: none; }
 
+.su-creads {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #8b949e;
+  font-family: "Cascadia Mono", Consolas, var(--font-mono), monospace;
+  font-size: 0.7rem;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.su-creads input { accent-color: #58a6ff; cursor: pointer; }
+
 .su-cbtn {
   background: none;
   border: 1px solid #30363d;

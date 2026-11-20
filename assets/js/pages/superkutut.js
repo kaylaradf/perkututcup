@@ -5,7 +5,7 @@
   if (!window.Router) return;
 
   var SUPER_PATH = "/mampir-dulu-loh-mas/cok-gateli/";
-  var state = { ac: null, es: null, paused: false, rows: [], maxRows: 800, filters: {} };
+  var state = { ac: null, es: null, paused: false, rows: [], maxRows: 800, filters: {}, showReads: false };
   var esc = window.DashCommon.escapeHtml;
 
   var LEVEL_COLORS = { INFO: "#7ee787", WARN: "#f9f1a5", ERROR: "#ffa657", CRITICAL: "#ff7b72" };
@@ -29,6 +29,7 @@
       '      <select class="su-cfilter" data-f="category" aria-label="Filter kategori"><option value="">category: all</option><option>auth</option><option>superkutut</option><option>profile</option><option>team</option><option>document</option><option>verification</option><option>competition</option><option>submission</option><option>jury</option><option>admin_users</option><option>api</option></select>' +
       '      <select class="su-cfilter" data-f="action" aria-label="Filter aksi"><option value="">action: all</option></select>' +
       '      <select class="su-cfilter" data-f="outcome" aria-label="Filter outcome"><option value="">outcome: all</option><option>ok</option><option>denied</option><option>error</option></select>' +
+      '      <label class="su-creads" title="Tampilkan baris GET sukses (pembacaan API) — noise, tersembunyi default"><input type="checkbox" data-show-reads /> GET reads</label>' +
       '      <input class="su-cfilter su-csearch" data-f="q" type="search" placeholder="grep…" aria-label="Cari log" />' +
       '      <button class="su-cbtn" type="button" data-pause>Pause</button>' +
       '      <button class="su-cbtn" type="button" data-export>Export</button>' +
@@ -91,6 +92,8 @@
 
   function matchesFilters(r) {
     var f = state.filters;
+    // GET sukses = pembacaan rutin; disembunyikan default agar tidak menenggelamkan event bernilai
+    if (!state.showReads && !f.category && !f.action && r.category === "api" && r.method === "GET" && r.outcome === "ok") return false;
     if (f.category && r.category !== f.category) return false;
     if (f.action && r.action !== f.action) return false;
     if (f.outcome && r.outcome !== f.outcome) return false;
@@ -152,7 +155,7 @@
   function loadHistory(container) {
     var con = container.querySelector("[data-console]");
     con.innerHTML = '<div class="su-line su-dim">Memuat riwayat…</div>';
-    fetch("/api/superkutut/logs?limit=200", { credentials: "same-origin" })
+    fetch("/api/superkutut/logs?limit=200&include_reads=1", { credentials: "same-origin" })
       .then(function (r) { if (r.status === 401) { window.location.replace("/mampir-dulu-loh-mas/loh-ya-boleh-wong-ditawari-kok/"); return null; } return r.json(); })
       .then(function (d) {
         if (!d) return;
@@ -182,6 +185,7 @@
     var signal = state.ac.signal;
     state.paused = false;
     state.filters = {};
+    state.showReads = false;
     window.DashCommon.initTheme(container, signal);
     window.DashCommon.initLogout(container, signal);
     window.DashCommon.refreshIcons();
@@ -199,8 +203,15 @@
 
     container.querySelector("[data-export]").addEventListener("click", function () {
       var f = state.filters;
-      var qs = Object.keys(f).filter(function (k) { return f[k]; }).map(function (k) { return k + "=" + encodeURIComponent(f[k]); }).join("&");
+      var qs = Object.keys(f).filter(function (k) { return f[k]; }).map(function (k) { return k + "=" + encodeURIComponent(f[k]); });
+      if (state.showReads) qs.push("include_reads=1");
+      qs = qs.join("&");
       window.open("/api/superkutut/logs/export" + (qs ? "?" + qs : ""), "_blank", "noopener");
+    }, { signal: signal });
+
+    container.querySelector("[data-show-reads]").addEventListener("change", function () {
+      state.showReads = this.checked;
+      paintAll(container);
     }, { signal: signal });
 
     container.querySelectorAll("[data-f]").forEach(function (el) {
