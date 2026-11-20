@@ -61,24 +61,24 @@ tidak pernah tercatat (bug yang ditemukan & diperbaiki saat implementasi).
 
 ## Prosedur Admin: Unlock Akun
 
-Belum ada panel admin — unlock dilakukan manual via SQL:
+**Via dashboard admin** (Kelola Pengguna): akun terkunci ditandai badge
+`LOCKED` (hover = waktu kunci) di samping nama, dengan tombol **Unlock** di
+kolom Aksi. Klik → konfirmasi → `POST /api/admin/users/{id}/unlock`
+(reset `failed_login_count=0, locked_at=NULL`, diaudit sebagai
+`admin_users/unlock_user`). **Reset password** via modal Ubah/Reset juga
+otomatis membuka lockout. Endpoint menolak `409` bila akun tidak terkunci.
+
+Alternatif darurat via SQL (bila dashboard tidak dapat diakses):
 
 ```bash
 sudo -u postgres psql perkututcup -c \
   "UPDATE users SET failed_login_count = 0, locked_at = NULL WHERE email = 'user@example.com';"
 ```
 
-Verifikasi:
-
-```bash
-sudo -u postgres psql perkututcup -c \
-  "SELECT email, failed_login_count, locked_at FROM users WHERE email = 'user@example.com';"
-```
-
 Kebijakan terkait: permintaan unlock datang melalui jalur yang sama dengan
 "lupa password" (lihat [`AUTH-UPDATES.md`](AUTH-UPDATES.md#lupa-password)) —
 pengguna menghubungi admin; admin memverifikasi identitas di luar sistem
-sebelum menjalankan perintah di atas.
+sebelum membuka kunci.
 
 ## Pelaporan Error Autentikasi
 

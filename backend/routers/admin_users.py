@@ -87,7 +87,7 @@ def admin_list_users(request: Request, q: str | None = None, limit: int = 50, of
             ).fetchone()["count"]
             rows = conn.execute(
                 f"""
-                SELECT id, full_name, email, COALESCE(role, 'user') AS role, institution, phone, created_at
+                SELECT id, full_name, email, COALESCE(role, 'user') AS role, institution, phone, created_at, failed_login_count, locked_at
                 FROM users
                 WHERE LOWER(full_name) LIKE %s OR LOWER(email) LIKE %s
                 {order}
@@ -99,7 +99,7 @@ def admin_list_users(request: Request, q: str | None = None, limit: int = 50, of
             total = conn.execute("SELECT COUNT(*) AS count FROM users").fetchone()["count"]
             rows = conn.execute(
                 f"""
-                SELECT id, full_name, email, COALESCE(role, 'user') AS role, institution, phone, created_at
+                SELECT id, full_name, email, COALESCE(role, 'user') AS role, institution, phone, created_at, failed_login_count, locked_at
                 FROM users
                 {order}
                 LIMIT %s OFFSET %s
@@ -115,7 +115,7 @@ def admin_get_user(user_id: int, request: Request):
     with db() as conn:
         row = conn.execute(
             """
-            SELECT id, full_name, email, COALESCE(role, 'user') AS role, institution, phone, created_at
+            SELECT id, full_name, email, COALESCE(role, 'user') AS role, institution, phone, created_at, failed_login_count, locked_at
             FROM users WHERE id = %s
             """,
             (user_id,),
@@ -135,7 +135,7 @@ def admin_create_user(payload: AdminUserCreateIn, request: Request):
                 """
                 INSERT INTO users (full_name, email, password_hash, role)
                 VALUES (%s, %s, %s, %s)
-                RETURNING id, full_name, email, COALESCE(role, 'user') AS role, institution, phone, created_at
+                RETURNING id, full_name, email, COALESCE(role, 'user') AS role, institution, phone, created_at, failed_login_count, locked_at
                 """,
                 (payload.full_name.strip(), email, hash_password(payload.password), payload.role),
             ).fetchone()
@@ -152,7 +152,7 @@ def admin_update_user(user_id: int, payload: AdminUserUpdateIn, request: Request
         raise HTTPException(status_code=422, detail="Tidak ada perubahan yang dikirim")
     with db() as conn:
         row = conn.execute(
-            "SELECT id, full_name, email, COALESCE(role, 'user') AS role, institution, phone, created_at FROM users WHERE id = %s",
+            "SELECT id, full_name, email, COALESCE(role, 'user') AS role, institution, phone, created_at, failed_login_count, locked_at FROM users WHERE id = %s",
             (user_id,),
         ).fetchone()
         if not row:
@@ -161,10 +161,33 @@ def admin_update_user(user_id: int, payload: AdminUserUpdateIn, request: Request
             raise HTTPException(status_code=400, detail="Admin tidak dapat menurunkan role akunnya sendiri")
         if payload.role is not None:
             row = conn.execute(
-                "UPDATE users SET role = %s WHERE id = %s RETURNING id, full_name, email, COALESCE(role, 'user') AS role, institution, phone, created_at",
+                "UPDATE users SET role = %s WHERE id = %s RETURNING id, full_name, email, COALESCE(role, 'user') AS role, institution, phone, created_at, failed_login_count, locked_at",
                 (payload.role, user_id),
             ).fetchone()
         if payload.password is not None:
-            conn.execute("UPDATE users SET password_hash = %s WHERE id = %s", (hash_password(payload.password), user_id))
+            # Reset password oleh admin sekaligus membuka lockout: kredensial baru,
+            # counter gagal lama tidak relevan lagi.
+            conn.execute("UPDATE users SET password_hash = %s, failed_login_count = 0, locked_at = NULL WHERE id = %s", (hash_password(payload.password), user_id))
     audit(request, "admin_users", "update_user", target_type="user", target_id=user_id, detail={"fields": ["role"] if payload.role is not None else [], "role": payload.role, "password_reset": payload.password is not None})
     return {"ok": True, "user": format_user(row), "password_reset": payload.password is not None}
+
+@router.post("/api/admin/users/{user_id}/unlock")
+def admin_unlock_user(user_id: int, request: Request):
+    """Buka kunci akun (lockout 5x salah password) — reset counter & locked_at."""
+    require_admin(request)
+    with db() as conn:
+        row = conn.execute(
+            "SELECT id, email, locked_at, failed_login_count FROM users WHERE id = %s",
+            (user_id,),
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Pengguna tidak ditemukan")
+        if row["locked_at"] is None and not row["failed_login_count"]:
+            raise HTTPException(status_code=409, detail="Akun tidak sedang terkunci")
+        conn.execute(
+            "UPDATE users SET failed_login_count = 0, locked_at = NULL WHERE id = %s",
+            (user_id,),
+        )
+    audit(request, "admin_users", "unlock_user", target_type="user", target_id=user_id,
+          detail={"email": row["email"], "was_locked": row["locked_at"] is not None, "failed_count": row["failed_login_count"]})
+    return {"ok": True, "message": "Kunci akun dibuka; pengguna dapat login kembali."}

@@ -620,6 +620,7 @@ USER_ROLES = {"user", "admin", "jury"}
 
 def format_user(row: dict) -> dict:
     created_at = row.get("created_at")
+    locked_at = row.get("locked_at")
     return {
         "id": row["id"],
         "full_name": row.get("full_name"),
@@ -628,4 +629,6 @@ def format_user(row: dict) -> dict:
         "institution": row.get("institution"),
         "phone": row.get("phone"),
         "created_at": created_at.isoformat() if created_at else None,
+        "failed_login_count": row.get("failed_login_count") or 0,
+        "locked_at": locked_at.isoformat() if locked_at else None,
     }

@@ -16,6 +16,10 @@
 '    .role-admin{color:#bf8fee;background:rgba(134,68,162,.16);border-color:rgba(134,68,162,.3)}' + "\n" +
 '    .role-user{color:var(--dash-text-body);background:rgba(255,232,217,.06)}' + "\n" +
 '    .role-jury{color:#f1c40f;background:rgba(241,196,15,.14);border-color:rgba(241,196,15,.3)}' + "\n" +
+'    .lock-badge{display:inline-flex;align-items:center;gap:4px;margin-left:6px;padding:.2rem .55rem;border-radius:6px;font-size:.65rem;font-weight:700;font-family:var(--font-mono);text-transform:uppercase;color:#e74c3c;background:rgba(231,76,60,.12);border:1px solid rgba(231,76,60,.35)}' + "\n" +
+'    [data-theme="light"] .lock-badge{color:#b91c1c}' + "\n" +
+'    .btn-unlock{border-color:rgba(231,76,60,.4);color:#e74c3c}' + "\n" +
+'    [data-theme="light"] .btn-unlock{color:#b91c1c}' + "\n" +
 '    .btn-admin{display:inline-flex;align-items:center;gap:5px;padding:.35rem .75rem;border:1px solid var(--dash-border-mid);border-radius:8px;background:rgba(255,232,217,.06);color:var(--dash-text-body);font-family:var(--font-mono);font-size:.7rem;cursor:pointer}' + "\n" +
 '    .btn-admin:hover{background:var(--dash-nav-hover);color:var(--dash-text-primary)}' + "\n" +
 '    .admin-modal{position:fixed;inset:0;background:rgba(11,12,16,.75);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:1.5rem;z-index:1000;opacity:0;pointer-events:none;transition:opacity 200ms ease}' + "\n" +
@@ -202,9 +206,30 @@
         if (!users.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--dash-text-muted);">Tidak ada pengguna.</td></tr>'; return; }
         tbody.innerHTML = users.map(function(u){
           var role = u.role || 'user';
-          return '<tr><td><code style="font-family:var(--font-mono);font-size:.72rem;">'+u.id+'</code></td><td><strong style="color:var(--dash-text-primary);">'+esc(u.full_name||'-')+'</strong><br/><span style="color:var(--dash-text-muted);font-size:.72rem;">'+esc(u.email||'-')+'</span></td><td><span class="role-badge role-'+esc(role)+'">'+esc(role)+'</span></td><td>'+esc(u.institution||'-')+'</td><td style="font-size:.72rem;color:var(--dash-text-muted);">'+esc(fmtDate(u.created_at))+'</td><td><button class="btn-admin" type="button" data-edit-user="'+u.id+'">Ubah / Reset</button></td></tr>';
+          var locked = !!u.locked_at;
+          var lockBadge = locked ? '<span class="lock-badge" title="Terkunci sejak '+esc(fmtDate(u.locked_at))+'">LOCKED</span>' : '';
+          var unlockBtn = locked ? ' <button class="btn-admin btn-unlock" type="button" data-unlock-user="'+u.id+'">Unlock</button>' : '';
+          return '<tr><td><code style="font-family:var(--font-mono);font-size:.72rem;">'+u.id+'</code></td><td><strong style="color:var(--dash-text-primary);">'+esc(u.full_name||'-')+'</strong>'+lockBadge+'<br/><span style="color:var(--dash-text-muted);font-size:.72rem;">'+esc(u.email||'-')+'</span></td><td><span class="role-badge role-'+esc(role)+'">'+esc(role)+'</span></td><td>'+esc(u.institution||'-')+'</td><td style="font-size:.72rem;color:var(--dash-text-muted);">'+esc(fmtDate(u.created_at))+'</td><td><button class="btn-admin" type="button" data-edit-user="'+u.id+'">Ubah / Reset</button>'+unlockBtn+'</td></tr>';
         }).join('');
         tbody.querySelectorAll('[data-edit-user]').forEach(function(btn){ btn.addEventListener('click', function(){ var id = Number(btn.getAttribute('data-edit-user')); var user = users.find(function(u){ return u.id===id; }); if (user) openModal('edit', user); }, { signal: signal }); });
+        tbody.querySelectorAll('[data-unlock-user]').forEach(function(btn){ btn.addEventListener('click', async function(){
+          var id = Number(btn.getAttribute('data-unlock-user'));
+          var user = users.find(function(u){ return u.id===id; });
+          var ok = await window.DashCommon.confirmMsg('Buka kunci akun?', (user ? user.email+' ('+user.full_name+')' : 'User #'+id)+' akan dapat login kembali; counter percobaan gagal direset.', 'Ya, unlock');
+          if (!ok || signal.aborted) return;
+          btn.disabled = true;
+          try {
+            var res = await fetch('/api/admin/users/' + id + '/unlock', { method:'POST', credentials:'same-origin', signal: signal });
+            var data = await res.json().catch(function(){ return {}; });
+            if (!res.ok) throw new Error(data.detail || ('HTTP ' + res.status));
+            window.DashCommon.toast('success', data.message || 'Kunci akun dibuka.');
+            usersCache.clear(); loadUsers(true);
+          } catch (err) {
+            if (signal.aborted) return;
+            btn.disabled = false;
+            window.DashCommon.alertMsg('error', 'Gagal unlock', err.message);
+          }
+        }, { signal: signal }); });
       }
 
       function updateSortIndicators(){
