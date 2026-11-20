@@ -1837,13 +1837,6 @@ input[type="date"].input {
 
 .su-line:hover { background: #161b22; }
 
-.su-t { color: #3fb950; }
-
-.su-c {
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
 .su-m { color: #c9d1d9; }
 
 .su-dim { color: #484f58; font-style: italic; }

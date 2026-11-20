@@ -95,7 +95,11 @@ Semua `require_superadmin`:
   tanpa dependensi baru, reconnect otomatis oleh EventSource browser.
 - `GET /api/superkutut/stats` — ringkasan: login sukses/gagal 24 jam, user
   aktif, upload terbaru, antrean verifikasi, submisi menunggu juri.
-- `GET /api/superkutut/logs/export?format=csv` — unduh CSV sesuai filter.
+- `GET /api/superkutut/logs/export` — unduh `.log` sesuai filter, format
+  Application Logging Standard (Hybrid: `[TS_UTC] [LEVEL] [IP] [user_id=…]
+  [EVENT] [STATUS] key=value …`, satu baris per event, tanpa emoticon;
+  nilai user-supplied di-strip CR/LF/TAB — CWE-117). Console UI memakai
+  format yang sama, bracket diwarnai per level/status.
 - Impersonation TIDAK dibuat (superadmin cukup punya semua privilege langsung;
   impersonasi menambah risiko & kompleksitas audit — YAGNI).
 

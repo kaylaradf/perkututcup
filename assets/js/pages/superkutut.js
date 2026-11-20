@@ -8,7 +8,9 @@
   var state = { ac: null, es: null, paused: false, rows: [], maxRows: 800, filters: {} };
   var esc = window.DashCommon.escapeHtml;
 
-  var CAT_COLORS = {
+  var LEVEL_COLORS = { INFO: "#7ee787", WARN: "#f9f1a5", ERROR: "#ffa657", CRITICAL: "#ff7b72" };
+  var STATUS_COLORS = { SUCCESS: "#7ee787", DENIED: "#ff7b72", ERROR: "#ffa657", FAILED: "#ffa657" };
+  var EVENT_COLORS = {
     auth: "#f9f1a5", superkutut: "#ff7b72", profile: "#7ee787", team: "#7ee787",
     document: "#d2a8ff", verification: "#d2a8ff", competition: "#ffa657",
     submission: "#ffa657", jury: "#f9f1a5", admin_users: "#ff7b72", api: "#79c0ff"
@@ -38,43 +40,54 @@
       '</div>';
   }
 
-  function pad(n) { return n < 10 ? "0" + n : "" + n; }
-
-  function lineHtml(r) {
-    var d = r.ts ? new Date(r.ts) : new Date();
-    var t = "[" + pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds()) + "]";
-    var color = CAT_COLORS[r.category] || "#8b949e";
-    var icon = r.outcome === "ok" ? "●" : (r.outcome === "denied" ? "⛔" : "✖");
-    var iconColor = r.outcome === "ok" ? "#7ee787" : (r.outcome === "denied" ? "#ff7b72" : "#ffa657");
-    var parts = [];
-    if (r.category === "api") {
-      parts.push((r.method || "") + " " + (r.path || ""));
-      if (r.status) parts.push("→ " + r.status);
-      if (r.duration_ms != null) parts.push(r.duration_ms + "ms");
-    } else {
-      parts.push(r.action.toUpperCase().replace(/_/g, " "));
-      if (r.target_type) parts.push(r.target_type + "#" + (r.target_id || "?"));
-    }
-    if (r.actor_email) parts.push("· " + r.actor_email + (r.actor_role ? " (" + r.actor_role + ")" : ""));
-    if (r.ip) parts.push("· " + r.ip);
-    var det = r.detail && Object.keys(r.detail).length ? r.detail : null;
-    if (det) {
-      var kv = Object.keys(det).map(function (k) {
-        var v = det[k];
-        if (v !== null && typeof v === "object") v = JSON.stringify(v);
-        return k + "=" + String(v);
-      }).join(" ");
-      parts.push("· " + kv);
-    }
-    return (
-      '<div class="su-line" data-id="' + r.id + '" title="' + esc(r.user_agent || "") + '">' +
-      '<span class="su-t">' + t + "</span> " +
-      '<span style="color:' + iconColor + '">' + icon + "</span> " +
-      '<span class="su-c" style="color:' + color + '">' + esc(r.category) + "</span> " +
-      '<span class="su-m">' + esc(parts.join("  ")) + "</span>" +
-      "</div>"
-    );
+  // Application Logging Standard — Hybrid Format (bracketed header + logfmt body),
+  // satu baris. Mirip core.format_log_line (backend) untuk export .log.
+  function fmtValue(v) {
+    var s = String(v).replace(/[\r\n\t]/g, " ");
+    if (s.length > 200) s = s.slice(0, 200) + "…";
+    if (s === "" || /[ "=\\,]/.test(s)) s = '"' + s.replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"';
+    return s;
   }
+
+  function logLine(r) {
+    var d = r.ts ? new Date(r.ts) : new Date();
+    var stamp = d.toISOString().replace(/\.\d+Z$/, "Z");
+    var level = r.outcome === "ok" ? "INFO" : (r.outcome === "denied" ? "WARN" : "ERROR");
+    var status = r.outcome === "ok" ? "SUCCESS" : (r.outcome === "denied" ? "DENIED" : "ERROR");
+    var actor = r.actor_id != null ? "user_id=" + r.actor_id : "user_id=-";
+    var event = String(r.action || "unknown").toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+    var body = [];
+    if (r.actor_email) body.push(["username", r.actor_email]);
+    if (r.actor_role) body.push(["role", r.actor_role]);
+    if (r.category) body.push(["category", r.category]);
+    if (r.target_type) body.push(["target", r.target_type + "#" + (r.target_id || "?")]);
+    if (r.method) body.push(["method", r.method]);
+    if (r.path) body.push(["path", r.path]);
+    if (r.status != null) body.push(["http_status", r.status]);
+    if (r.duration_ms != null) body.push(["duration_ms", r.duration_ms]);
+    var det = r.detail || {};
+    Object.keys(det).forEach(function (k) {
+      var v = det[k];
+      if (v === null || v === undefined) return;
+      if (typeof v === "object") v = JSON.stringify(v);
+      body.push([k, v]);
+    });
+    var kv = body.map(function (p) { return p[0] + "=" + fmtValue(p[1]); }).join(" ");
+    var brackets = [
+      [stamp, "#3fb950"], [level, LEVEL_COLORS[level]], [r.ip || "system", "#79c0ff"],
+      [actor, "#8b949e"], [event, EVENT_COLORS[r.category] || "#8b949e"], [status, STATUS_COLORS[status]]
+    ];
+    var html = brackets.map(function (b) {
+      return '<span style="color:' + b[1] + '">[' + esc(b[0]) + "]</span>";
+    }).join(" ");
+    if (kv) html += ' <span class="su-m">' + esc(kv) + "</span>";
+    return {
+      text: brackets.map(function (b) { return "[" + b[0] + "]"; }).join(" ") + (kv ? " " + kv : ""),
+      html: '<div class="su-line" data-id="' + r.id + '" title="' + esc(r.user_agent || "") + '">' + html + "</div>"
+    };
+  }
+
+  function lineHtml(r) { return logLine(r).html; }
 
   function matchesFilters(r) {
     var f = state.filters;

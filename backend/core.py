@@ -3,6 +3,7 @@ import secrets
 import hashlib
 import hmac
 from datetime import datetime, timedelta, timezone
+import re
 from pathlib import Path
 
 import bcrypt
@@ -281,6 +282,72 @@ def verify_super_totp(code: str) -> bool:
 
 # --------------------------------------------------------------- audit log
 
+_LOG_FMT_MAX_VALUE = 200
+
+def _logfmt_value(v):
+    """Satu nilai logfmt: strip CR/LF/TAB (CWE-117), escape kutip, quote bila perlu."""
+    s = str(v).replace("\r", " ").replace("\n", " ").replace("\t", " ")
+    if len(s) > _LOG_FMT_MAX_VALUE:
+        s = s[:_LOG_FMT_MAX_VALUE] + "…"
+    if s == "" or any(c in s for c in ' "=\\') or "," in s:
+        s = '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
+    return s
+
+def _sanitize_detail(obj):
+    """Rekursif: bersihkan CR/LF/TAB dari string user-supplied sebelum masuk DB."""
+    if isinstance(obj, str):
+        return obj.replace("\r", " ").replace("\n", " ").replace("\t", " ")
+    if isinstance(obj, dict):
+        return {k: _sanitize_detail(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitize_detail(v) for v in obj]
+    return obj
+
+def format_log_line(r):
+    """Application Logging Standard — Hybrid Format, satu baris:
+    [TS_UTC] [LEVEL] [IP] [user_id=…] [EVENT] [STATUS] key=value …
+    r: baris audit_logs (dict); ts boleh datetime atau ISO string."""
+    import json as _json
+    ts = r.get("ts")
+    if isinstance(ts, str):
+        ts = datetime.fromisoformat(ts)
+    stamp = ts.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ") if ts else "-"
+    outcome = r.get("outcome") or "ok"
+    status = {"ok": "SUCCESS", "denied": "DENIED", "error": "ERROR"}.get(outcome, "FAILED")
+    level = {"ok": "INFO", "denied": "WARN"}.get(outcome, "ERROR")
+    ip = r.get("ip") or "system"
+    actor = "user_id=" + str(r["actor_id"]) if r.get("actor_id") is not None else "user_id=-"
+    event = re.sub(r"[^A-Z0-9]+", "_", str(r.get("action") or "UNKNOWN").upper()).strip("_")
+    header = f"[{stamp}] [{level}] [{ip}] [{actor}] [{event}] [{status}]"
+    body = []
+    if r.get("actor_email"):
+        body.append(("username", r["actor_email"]))
+    if r.get("actor_role"):
+        body.append(("role", r["actor_role"]))
+    if r.get("category"):
+        body.append(("category", r["category"]))
+    if r.get("target_type"):
+        body.append(("target", f"{r['target_type']}#{r.get('target_id') or '?'}"))
+    if r.get("method"):
+        body.append(("method", r["method"]))
+    if r.get("path"):
+        body.append(("path", r["path"]))
+    if r.get("status") is not None:
+        body.append(("http_status", r["status"]))
+    if r.get("duration_ms") is not None:
+        body.append(("duration_ms", r["duration_ms"]))
+    detail = r.get("detail") or {}
+    if isinstance(detail, str):
+        detail = _json.loads(detail)
+    for k, v in detail.items():
+        if v is None:
+            continue
+        if isinstance(v, (dict, list)):
+            v = _json.dumps(v, ensure_ascii=False, default=str)
+        body.append((k, v))
+    kv = " ".join(f"{k}={_logfmt_value(v)}" for k, v in body)
+    return header + (" " + kv if kv else "")
+
 def audit(request, category, action, *, target_type=None, target_id=None, detail=None, outcome="ok", actor=None, fail_closed=False):
     """Catat aktivitas bernilai ke audit_logs. Best-effort: kegagalan insert tidak
     menggagalkan request bisnis — kecuali fail_closed (aksi superadmin)."""
@@ -311,12 +378,18 @@ def audit(request, category, action, *, target_type=None, target_id=None, detail
                     action,
                     target_type,
                     str(target_id) if target_id is not None else None,
-                    _json.dumps(detail or {}, default=str, ensure_ascii=False),
+                    _json.dumps(_sanitize_detail(detail or {}), default=str, ensure_ascii=False),
                     outcome,
                 ),
             )
     except Exception as e:
-        print(f"[audit] insert gagal: {e}", file=sys.stderr)
+        print(format_log_line({
+            "ts": datetime.now(timezone.utc), "actor_id": actor.get("id"),
+            "actor_email": actor.get("email"), "actor_role": actor.get("role"),
+            "ip": ip, "category": category, "action": action,
+            "target_type": target_type, "target_id": target_id,
+            "detail": detail or {}, "outcome": "error",
+        }) + " audit_insert_failed=" + _logfmt_value(e), file=sys.stderr)
         if fail_closed:
             raise HTTPException(status_code=500, detail="Audit gagal; aksi dibatalkan.")
 

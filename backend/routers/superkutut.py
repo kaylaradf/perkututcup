@@ -4,7 +4,6 @@ Login terpisah (env credentials + captcha perkalian + TOTP), session cookie
 tersendiri, live audit log (SSE), stats, export CSV. Semua endpoint di sini
 require_superadmin kecuali auth. Aksi superadmin diaudit fail-closed.
 """
-import csv
 import hashlib
 import hmac
 import io
@@ -24,6 +23,7 @@ from core import (
     SUPER_COOKIE,
     SUPER_SESSION_TTL_HOURS,
     AUDIT_RETENTION_DAYS,
+    format_log_line,
     _hash_token,
     audit,
     create_super_session,
@@ -225,16 +225,11 @@ def super_logs_export(request: Request):
     with db() as conn:
         rows = conn.execute(f"SELECT {LOG_COLS} FROM audit_logs{clause} ORDER BY id DESC LIMIT 10000", params).fetchall()
     audit(request, "superkutut", "export_logs", detail={"rows": len(rows)}, actor=user, fail_closed=True)
-    buf = io.StringIO()
-    w = csv.writer(buf)
-    cols = LOG_COLS.replace(" ", "").split(",")
-    w.writerow(cols)
-    for r in rows:
-        w.writerow([json.dumps(r[c], ensure_ascii=False, default=str) if c == "detail" else r[c] for c in cols])
+    lines = [format_log_line(r) for r in reversed(rows)]  # kronologis ASC
     return StreamingResponse(
-        iter([buf.getvalue()]),
-        media_type="text/csv",
-        headers={"Content-Disposition": 'attachment; filename="superkutut-logs.csv"'},
+        iter(["\n".join(lines) + "\n"]),
+        media_type="text/plain; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="superkutut-logs.log"'},
     )
 
 
